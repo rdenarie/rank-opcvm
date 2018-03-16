@@ -56,12 +56,20 @@ public class OpcvmService extends HttpServlet {
 
     URL url = new URL("https://bourse.boursorama.com/recherche/"+id);
     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-    int status = conn.getResponseCode();
 
-    while (isRedirect(status)) {
+    String myCookie = "B20_TRADING_ENABLED=1";
+    conn.setRequestProperty("Cookie", myCookie);
+
+
+    int status = conn.getResponseCode();
+    int nbRedirect=0;
+    while (isRedirect(status) && nbRedirect<5) {
+      nbRedirect++;
       String newUrl = conn.getHeaderField("Location");
+      System.out.println(newUrl);
       // open the new connnection again
       conn = (HttpURLConnection) new URL(newUrl).openConnection();
+      conn.setRequestProperty("Cookie", myCookie);
       status = conn.getResponseCode();
     }
 
