@@ -86,7 +86,7 @@ public class OpcvmService extends HttpServlet {
 
   }
 
-  private double calculScorePercentile(JsonObject object) {
+  private int calculScorePercentile(JsonObject object) {
     double score;
     int current = 1;
     int nbElement=0;
@@ -106,7 +106,7 @@ public class OpcvmService extends HttpServlet {
       score=score+object.get(indexes[current-1]).getAsDouble();
     }
 
-    return score;
+    return (int) Math.round(score);
   }
 
   private JsonObject extractValues(String boursoResponse) {
