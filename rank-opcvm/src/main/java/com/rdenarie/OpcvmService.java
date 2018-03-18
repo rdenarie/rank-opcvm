@@ -24,6 +24,8 @@ import static com.google.appengine.repackaged.com.google.api.client.http.HttpSta
 @WebServlet(name = "OpcvmService", value = "/opcvmService")
 public class OpcvmService extends HttpServlet {
 
+  String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
+
   @Override
   public void doGet(HttpServletRequest request, HttpServletResponse response)
       throws IOException {
@@ -38,11 +40,14 @@ public class OpcvmService extends HttpServlet {
       String boursoResponse = getBoursoResponse(id);
 
       result.addProperty("id",id);
-      result.addProperty("score",150);
-      System.out.println(boursoResponse);
-      result.addProperty("page",boursoResponse);
-
-
+      JsonObject values = extractValues(boursoResponse);
+      result.add("values",values);
+      double scoreFond=calculScore(values.getAsJsonObject("fond"));
+      double scoreCategory=calculScore(values.getAsJsonObject("category"));
+      double scorePercentile=calculScorePercentile(values.getAsJsonObject("percentile"));
+      result.addProperty("scoreFond",scoreFond);
+      result.addProperty("scoreCategory",scoreCategory);
+      result.addProperty("scorePercentile",scorePercentile);
 
     } catch (Exception e) {
       e.printStackTrace();
@@ -50,6 +55,108 @@ public class OpcvmService extends HttpServlet {
     }
     response.setContentType("application/json");
     response.getWriter().println(result.toString());
+  }
+
+  private double calculScore(JsonObject object) {
+    double score;
+    int current = 1;
+    int nbElement=0;
+    double somme=0d;
+    while (current<=indexes.length) {
+      String val = object.get(indexes[current-1]).getAsString();
+      if (!val.equals("")) {
+        somme+=new Double(val);
+        nbElement++;
+      }
+      current++;
+    }
+    System.out.println("Somme="+somme+" nbElement="+nbElement);
+    score=somme/nbElement;
+    System.out.println("Score="+score);
+    if (nbElement>4) {
+      score=score+object.get("3ans").getAsDouble();
+    } else {
+      score=score+object.get(indexes[nbElement-1]).getAsDouble();
+    }
+    System.out.println("Score="+score);
+
+    return score;
+
+
+
+  }
+
+  private double calculScorePercentile(JsonObject object) {
+    double score;
+    int current = 1;
+    int nbElement=0;
+    double somme=0d;
+    while (current<=indexes.length) {
+      String val = object.get(indexes[current-1]).getAsString();
+      if (!val.equals("")) {
+        somme+=new Double(val);
+        nbElement++;
+      }
+      current++;
+    }
+    score=somme/nbElement;
+    if (nbElement>5) {
+      score=score+object.get("5ans").getAsInt();
+    } else {
+      score=score+object.get(indexes[current-1]).getAsDouble();
+    }
+
+    return score;
+  }
+
+  private JsonObject extractValues(String boursoResponse) {
+    Pattern pattern = Pattern.compile("<td class = 'c-table__cell c-table__cell--dotted c-table__cell--(?:negative|positive)'>(.*?)</td>");
+    Matcher matcher = pattern.matcher(boursoResponse);
+    JsonObject result = new JsonObject();
+    int current=1;
+    //we want only the 8 first value for scoreFond
+    JsonObject fond = new JsonObject();
+    JsonObject category = new JsonObject();
+    JsonObject percentile = new JsonObject();
+
+
+    while (matcher.find()) {
+      String group = matcher.group(1).trim();
+      System.out.println(group);
+      //4.57%
+      //or -4.57%
+
+      //remove %
+      group = group.substring(0, group.length() - 1);
+      if (current<=indexes.length) {
+        fond.addProperty(indexes[current-1], group);
+      } else {
+        int index=current-indexes.length;
+        category.addProperty(indexes[index-1],group);
+      }
+      current++;
+
+    }
+    result.add("fond",fond);
+    result.add("category",category);
+
+    pattern = Pattern.compile("<td class=\"c-table__cell c-table__cell--dotted\">(.*?)</td>");
+    matcher = pattern.matcher(boursoResponse);
+    current=1;
+    while (matcher.find()) {
+      String group = matcher.group(1).trim();
+      System.out.println(group);
+      //4.57%
+      //or -4.57%
+
+      //remove %
+      group = group.substring(0, group.length() - 1);
+      percentile.addProperty(indexes[current-1], group);
+      current++;
+    }
+    result.add("percentile",percentile);
+
+    return result;
   }
 
   private String getBoursoResponse(String id) throws IOException {
@@ -66,7 +173,6 @@ public class OpcvmService extends HttpServlet {
     while (isRedirect(status) && nbRedirect<5) {
       nbRedirect++;
       String newUrl = conn.getHeaderField("Location");
-      System.out.println(newUrl);
       // open the new connnection again
       conn = (HttpURLConnection) new URL(newUrl).openConnection();
       conn.setRequestProperty("Cookie", myCookie);
@@ -82,7 +188,6 @@ public class OpcvmService extends HttpServlet {
       response.append(line);
     }
     reader.close();
-    System.out.println(response.toString());
 
 
     Pattern pattern = Pattern.compile("<div class=\"c-fund-performances__table\">(.*?)</div>");
