@@ -70,15 +70,12 @@ public class OpcvmService extends HttpServlet {
       }
       current++;
     }
-    System.out.println("Somme="+somme+" nbElement="+nbElement);
     score=somme/nbElement;
-    System.out.println("Score="+score);
     if (nbElement>4) {
       score=score+object.get("3ans").getAsDouble();
     } else {
       score=score+object.get(indexes[nbElement-1]).getAsDouble();
     }
-    System.out.println("Score="+score);
 
     return score;
 
@@ -122,7 +119,6 @@ public class OpcvmService extends HttpServlet {
 
     while (matcher.find()) {
       String group = matcher.group(1).trim();
-      System.out.println(group);
       //4.57%
       //or -4.57%
 
@@ -145,7 +141,6 @@ public class OpcvmService extends HttpServlet {
     current=1;
     while (matcher.find()) {
       String group = matcher.group(1).trim();
-      System.out.println(group);
       //4.57%
       //or -4.57%
 
