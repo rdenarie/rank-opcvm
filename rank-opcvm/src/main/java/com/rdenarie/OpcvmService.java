@@ -19,6 +19,11 @@ import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
 import static com.google.appengine.repackaged.com.google.api.client.http.HttpStatusCodes.isRedirect;
 
 @WebServlet(name = "OpcvmService", value = "/opcvmService")
@@ -39,6 +44,8 @@ public class OpcvmService extends HttpServlet {
     try {
       String boursoResponse = getBoursoResponse(id);
 
+      Document doc = Jsoup.parse(boursoResponse);
+
       result.addProperty("id",id);
       JsonObject values = extractValues(boursoResponse);
       result.add("values",values);
@@ -49,6 +56,11 @@ public class OpcvmService extends HttpServlet {
       result.addProperty("scoreCategory",scoreCategory);
       result.addProperty("scorePercentile",scorePercentile);
 
+      result.addProperty("name",extractName(boursoResponse));
+      result.addProperty("msrating",extractMSRating(boursoResponse));
+
+      extractCostsConditions(result,doc);
+      extractFacePrice(result,doc);
     } catch (Exception e) {
       e.printStackTrace();
 
@@ -57,12 +69,13 @@ public class OpcvmService extends HttpServlet {
     response.getWriter().println(result.toString());
   }
 
+
   private double calculScore(JsonObject object) {
     double score;
     int current = 1;
     int nbElement=0;
     double somme=0d;
-    while (current<=indexes.length) {
+    while (current<=object.size()) {
       String val = object.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
         somme+=new Double(val);
@@ -88,7 +101,7 @@ public class OpcvmService extends HttpServlet {
     int current = 1;
     int nbElement=0;
     double somme=0d;
-    while (current<=indexes.length) {
+    while (current<=object.size()) {
       String val = object.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
         somme+=new Double(val);
@@ -107,52 +120,96 @@ public class OpcvmService extends HttpServlet {
   }
 
   private JsonObject extractValues(String boursoResponse) {
-    Pattern pattern = Pattern.compile("<td class = 'c-table__cell c-table__cell--dotted c-table__cell--(?:negative|positive)'>(.*?)</td>");
-    Matcher matcher = pattern.matcher(boursoResponse);
+    //todo:usejsoup
     JsonObject result = new JsonObject();
-    int current=1;
-    //we want only the 8 first value for scoreFond
-    JsonObject fond = new JsonObject();
-    JsonObject category = new JsonObject();
-    JsonObject percentile = new JsonObject();
+    Pattern patternExtract = Pattern.compile("<div class=\"c-fund-performances__table\">(.*?)</div>");
+    Matcher matcherExtract = patternExtract.matcher(boursoResponse.toString());
+    if (matcherExtract.find()) {
+      String extractedResponse = matcherExtract.group(1);
+      Pattern pattern = Pattern.compile("<td class = 'c-table__cell c-table__cell--dotted c-table__cell--(?:negative|positive)'>(.*?)</td>");
+
+      Matcher matcher = pattern.matcher(extractedResponse);
+      int current = 1;
+      //we want only the 8 first value for scoreFond
+      JsonObject fond = new JsonObject();
+      JsonObject category = new JsonObject();
+      JsonObject percentile = new JsonObject();
 
 
-    while (matcher.find()) {
-      String group = matcher.group(1).trim();
-      //4.57%
-      //or -4.57%
+      while (matcher.find()) {
+        String group = matcher.group(1).trim();
+        //4.57%
+        //or -4.57%
 
-      //remove %
-      group = group.substring(0, group.length() - 1);
-      if (current<=indexes.length) {
-        fond.addProperty(indexes[current-1], group);
-      } else {
-        int index=current-indexes.length;
-        category.addProperty(indexes[index-1],group);
+        //remove %
+        group = group.substring(0, group.length() - 1);
+        if (current <= indexes.length) {
+          fond.addProperty(indexes[current - 1], group);
+        } else {
+          int index = current - indexes.length;
+          category.addProperty(indexes[index - 1], group);
+        }
+        current++;
+
       }
-      current++;
+      result.add("fond", fond);
+      result.add("category", category);
+
+      pattern = Pattern.compile("<td class=\"c-table__cell c-table__cell--dotted\">(.*?)</td>");
+      matcher = pattern.matcher(extractedResponse);
+      current = 1;
+      while (matcher.find()) {
+        String group = matcher.group(1).trim();
+        percentile.addProperty(indexes[current - 1], group);
+        current++;
+      }
+      result.add("percentile", percentile);
+
 
     }
-    result.add("fond",fond);
-    result.add("category",category);
-
-    pattern = Pattern.compile("<td class=\"c-table__cell c-table__cell--dotted\">(.*?)</td>");
-    matcher = pattern.matcher(boursoResponse);
-    current=1;
-    while (matcher.find()) {
-      String group = matcher.group(1).trim();
-      //4.57%
-      //or -4.57%
-
-      //remove %
-      group = group.substring(0, group.length() - 1);
-      percentile.addProperty(indexes[current-1], group);
-      current++;
-    }
-    result.add("percentile",percentile);
-
     return result;
+
+
   }
+
+  private String extractName(String boursoResponse) {
+    //todo : use jsoup
+    Pattern pattern = Pattern.compile("<a class=\"c-faceplate__company-link\" href=\"/bourse/opcvm/cours/(.*?)/\" title=\"(.*?)\">(.*?)</a>");
+    Matcher matcher = pattern.matcher(boursoResponse);
+    if (matcher.find()) {
+      return matcher.group(3).trim();
+
+    }
+
+    return "";
+  }
+
+  private String extractMSRating(String boursoResponse) {
+    //todo : use jsoup
+    Pattern pattern = Pattern.compile("<fieldset class=\"c-rating c-rating--counter-reverse c-rating--counter\">(.*?)</fieldset>");
+    Matcher matcher = pattern.matcher(boursoResponse);
+    if (matcher.find()) {
+      String fieldset = matcher.group(0);
+      Pattern input = Pattern.compile("<input class=\"c-rating__check\"(.*?)data-radio-removable-check/>");
+      Matcher inputMatcher=input.matcher(fieldset);
+      while (inputMatcher.find()) {
+        String candidate = inputMatcher.group(0);
+        if (candidate.contains("checked=\"checked\"")) {
+          Pattern value = Pattern.compile("value=\"(.*?)\"");
+          Matcher valueMatcher = value.matcher(candidate);
+          if (valueMatcher.find()) {
+            return valueMatcher.group(1);
+          }
+        }
+      }
+
+
+    }
+
+    return "";
+
+  }
+
 
   private String getBoursoResponse(String id) throws IOException {
 
@@ -185,12 +242,69 @@ public class OpcvmService extends HttpServlet {
     reader.close();
 
 
-    Pattern pattern = Pattern.compile("<div class=\"c-fund-performances__table\">(.*?)</div>");
-    Matcher matcher = pattern.matcher(response.toString());
-    if (matcher.find()) {
-      return (matcher.group(1));
-    }
-    return "";
+    return response.toString();
   }
+
+  private void extractCostsConditions(JsonObject result, Document boursoResponse) {
+
+
+    Element costsConditions = boursoResponse.select("div.c-costs-conditions").first();
+
+    Elements costs = costsConditions.select("tr.c-table__row--to-list");
+    int i=1;
+    for (Element cost : costs) {
+
+      if (i==1) {
+        //Frais d'entrée
+        String fraisEntreeValue = "";
+        Elements fraisEntree = cost.select("td");
+        for (Element entree : fraisEntree) {
+          fraisEntreeValue = entree.text();
+        }
+        fraisEntreeValue=fraisEntreeValue.replace("%","").trim();
+        result.addProperty("entree",fraisEntreeValue.equals("") ? "ND" : fraisEntreeValue);
+      } else if (i==2) {
+        //Frais de sortie
+        String fraisSortieValue = "";
+        Elements fraisSortie = cost.select("td");
+        for (Element sortie : fraisSortie) {
+          fraisSortieValue = sortie.text();
+        }
+        fraisSortieValue=fraisSortieValue.replace("%","").trim();
+        result.addProperty("sortie",fraisSortieValue.equals("") ? "ND" : fraisSortieValue);
+      }else if (i==3) {
+        //Frais courant
+        String fraisCourantValue = "";
+        Elements fraisCourant = cost.select("td");
+        for (Element courant : fraisCourant) {
+          fraisCourantValue = courant.text();
+        }
+        fraisCourantValue=fraisCourantValue.replace("%","").trim();
+
+        if (fraisCourantValue.contains(" ")) {
+          fraisCourantValue=fraisCourantValue.substring(0,fraisCourantValue.indexOf(" "));
+        }
+        result.addProperty("courant",fraisCourantValue.equals("") ? "ND" : fraisCourantValue);
+      }
+
+
+
+      i++;
+    }
+
+
+  }
+
+  private void extractFacePrice(JsonObject result, Document doc) {
+    Element facePrice = doc.select("div.c-faceplate__price").first();
+    Element price = facePrice.selectFirst("span");
+    result.addProperty("price",price.text().replace(".",","));
+
+    Element currentcy = facePrice.select("span").last();
+    result.addProperty("currency",currentcy.text());
+
+
+  }
+
 
 }
