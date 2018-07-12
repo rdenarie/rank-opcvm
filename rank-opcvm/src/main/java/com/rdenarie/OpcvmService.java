@@ -15,6 +15,7 @@ import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.net.URLConnection;
+import java.text.DecimalFormat;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -47,8 +48,8 @@ public class OpcvmService extends HttpServlet {
       Document doc = Jsoup.parse(boursoResponse);
 
       result.addProperty("id",id);
-      JsonObject values = extractValues(boursoResponse);
-      result.add("values",values);
+      extractValues(result, doc);
+      JsonObject values = result.getAsJsonObject("values");
       double scoreFond=calculScore(values.getAsJsonObject("fond"));
       double scoreCategory=calculScore(values.getAsJsonObject("category"));
       double scorePercentile=calculScorePercentile(values.getAsJsonObject("percentile"));
@@ -56,11 +57,12 @@ public class OpcvmService extends HttpServlet {
       result.addProperty("scoreCategory",scoreCategory);
       result.addProperty("scorePercentile",scorePercentile);
 
-      result.addProperty("name",extractName(boursoResponse));
-      result.addProperty("msrating",extractMSRating(boursoResponse));
+      extractName(result,doc);
+      extractMSRating(result,doc);
 
       extractCostsConditions(result,doc);
       extractFacePrice(result,doc);
+      extractGerant(result,doc);
     } catch (Exception e) {
       e.printStackTrace();
 
@@ -89,8 +91,7 @@ public class OpcvmService extends HttpServlet {
     } else {
       score=score+object.get(indexes[nbElement-1]).getAsDouble();
     }
-
-    return score;
+    return Math.round(score * 100.0) / 100.0;
 
 
 
@@ -119,95 +120,52 @@ public class OpcvmService extends HttpServlet {
     return (int) Math.round(score);
   }
 
-  private JsonObject extractValues(String boursoResponse) {
-    //todo:usejsoup
-    JsonObject result = new JsonObject();
-    Pattern patternExtract = Pattern.compile("<div class=\"c-fund-performances__table\">(.*?)</div>");
-    Matcher matcherExtract = patternExtract.matcher(boursoResponse.toString());
-    if (matcherExtract.find()) {
-      String extractedResponse = matcherExtract.group(1);
-      Pattern pattern = Pattern.compile("<td class = 'c-table__cell c-table__cell--dotted c-table__cell--(?:negative|positive)'>(.*?)</td>");
+  private void extractValues(JsonObject result, Document boursoResponse) {
 
-      Matcher matcher = pattern.matcher(extractedResponse);
-      int current = 1;
-      //we want only the 8 first value for scoreFond
-      JsonObject fond = new JsonObject();
-      JsonObject category = new JsonObject();
-      JsonObject percentile = new JsonObject();
+    Element fundPerf = boursoResponse.selectFirst("div.c-fund-performances__table");
 
-
-      while (matcher.find()) {
-        String group = matcher.group(1).trim();
-        //4.57%
-        //or -4.57%
-
-        //remove %
-        group = group.substring(0, group.length() - 1);
-        if (current <= indexes.length) {
-          fond.addProperty(indexes[current - 1], group);
-        } else {
-          int index = current - indexes.length;
-          category.addProperty(indexes[index - 1], group);
-        }
-        current++;
-
-      }
-      result.add("fond", fond);
-      result.add("category", category);
-
-      pattern = Pattern.compile("<td class=\"c-table__cell c-table__cell--dotted\">(.*?)</td>");
-      matcher = pattern.matcher(extractedResponse);
-      current = 1;
-      while (matcher.find()) {
-        String group = matcher.group(1).trim();
-        percentile.addProperty(indexes[current - 1], group);
-        current++;
-      }
-      result.add("percentile", percentile);
-
-
-    }
-    return result;
-
-
-  }
-
-  private String extractName(String boursoResponse) {
-    //todo : use jsoup
-    Pattern pattern = Pattern.compile("<a class=\"c-faceplate__company-link\" href=\"/bourse/opcvm/cours/(.*?)/\" title=\"(.*?)\">(.*?)</a>");
-    Matcher matcher = pattern.matcher(boursoResponse);
-    if (matcher.find()) {
-      return matcher.group(3).trim();
-
-    }
-
-    return "";
-  }
-
-  private String extractMSRating(String boursoResponse) {
-    //todo : use jsoup
-    Pattern pattern = Pattern.compile("<fieldset class=\"c-rating c-rating--counter-reverse c-rating--counter\">(.*?)</fieldset>");
-    Matcher matcher = pattern.matcher(boursoResponse);
-    if (matcher.find()) {
-      String fieldset = matcher.group(0);
-      Pattern input = Pattern.compile("<input class=\"c-rating__check\"(.*?)data-radio-removable-check/>");
-      Matcher inputMatcher=input.matcher(fieldset);
-      while (inputMatcher.find()) {
-        String candidate = inputMatcher.group(0);
-        if (candidate.contains("checked=\"checked\"")) {
-          Pattern value = Pattern.compile("value=\"(.*?)\"");
-          Matcher valueMatcher = value.matcher(candidate);
-          if (valueMatcher.find()) {
-            return valueMatcher.group(1);
+    Elements trs = fundPerf.select("tr.c-table__row");
+    JsonObject values = new JsonObject();
+    int i=0;
+    for (Element tr: trs) {
+      Elements tds=tr.select("td.c-table__cell");
+      JsonObject listeValue = new JsonObject();
+      int j=0;
+      for (Element td : tds) {
+        if (!td.text().equals("-")) {
+          if (i == 3) {
+            //percentile
+            listeValue.addProperty(indexes[j], new Integer(td.text().replace("%", "")));
+          } else if (i == 0) {
+            //do nothing, it tr in thead
+          } else {
+            //fond ou category
+            listeValue.addProperty(indexes[j], new Double(td.text().replace("%", "")));
           }
         }
+        j++;
       }
-
-
+      if (i==1) {
+        values.add("fond", listeValue);
+      } else if (i==2) {
+        values.add("category", listeValue);
+      }else if (i==3) {
+        values.add("percentile", listeValue);
+      }
+      i++;
     }
 
-    return "";
+    result.add("values", values);
+  }
 
+  private void extractName(JsonObject result, Document boursoResponse) {
+    Element name = boursoResponse.selectFirst("a.c-faceplate__company-link");
+    result.addProperty("name",name.text());
+  }
+
+  private void extractMSRating(JsonObject result, Document boursoResponse) {
+    Element input = boursoResponse.selectFirst("input.c-rating__check[checked]");
+    result.addProperty("msrating",input==null ? "ND" : input.attr("value"));
   }
 
 
@@ -261,7 +219,7 @@ public class OpcvmService extends HttpServlet {
         for (Element entree : fraisEntree) {
           fraisEntreeValue = entree.text();
         }
-        fraisEntreeValue=fraisEntreeValue.replace("%","").trim();
+        fraisEntreeValue=fraisEntreeValue.trim();
         result.addProperty("entree",fraisEntreeValue.equals("") ? "ND" : fraisEntreeValue);
       } else if (i==2) {
         //Frais de sortie
@@ -270,7 +228,7 @@ public class OpcvmService extends HttpServlet {
         for (Element sortie : fraisSortie) {
           fraisSortieValue = sortie.text();
         }
-        fraisSortieValue=fraisSortieValue.replace("%","").trim();
+        fraisSortieValue=fraisSortieValue.trim();
         result.addProperty("sortie",fraisSortieValue.equals("") ? "ND" : fraisSortieValue);
       }else if (i==3) {
         //Frais courant
@@ -279,10 +237,10 @@ public class OpcvmService extends HttpServlet {
         for (Element courant : fraisCourant) {
           fraisCourantValue = courant.text();
         }
-        fraisCourantValue=fraisCourantValue.replace("%","").trim();
+        fraisCourantValue=fraisCourantValue.trim();
 
         if (fraisCourantValue.contains(" ")) {
-          fraisCourantValue=fraisCourantValue.substring(0,fraisCourantValue.indexOf(" "));
+          fraisCourantValue=fraisCourantValue.substring(0,fraisCourantValue.indexOf("%")+1);
         }
         result.addProperty("courant",fraisCourantValue.equals("") ? "ND" : fraisCourantValue);
       }
@@ -292,17 +250,58 @@ public class OpcvmService extends HttpServlet {
       i++;
     }
 
+    Elements parts = costsConditions.select("div.c-list-info").first().select("li");
+    i=1;
+    for (Element part : parts){
+      if (i==1) {
+        String ticketIn=part.selectFirst("p.c-list-info__value").text();
+        result.addProperty("ticketIn",ticketIn.equals("") ? "ND" : ticketIn);
+      }
+      if (i==3) {
+        String ticketRenew=part.selectFirst("p.c-list-info__value").text();
+        result.addProperty("ticketRenew",ticketRenew.equals("") ? "ND" : ticketRenew);
+      }
+      i++;
+    }
+
+
+
 
   }
 
   private void extractFacePrice(JsonObject result, Document doc) {
     Element facePrice = doc.select("div.c-faceplate__price").first();
     Element price = facePrice.selectFirst("span");
-    result.addProperty("price",price.text().replace(".",","));
+    result.addProperty("price",new Double(price.text()));
 
     Element currentcy = facePrice.select("span").last();
     result.addProperty("currency",currentcy.text());
 
+
+    Element faceQuotation = doc.selectFirst("div.c-faceplate__quotation");
+    String actif = faceQuotation.select("li.c-list-info__item").get(2).text().split("/")[1].replace(" ","");
+    result.addProperty("actifM",new Double(actif));
+
+
+
+  }
+  private void extractGerant(JsonObject result, Document doc) {
+    Element gerant = doc.selectFirst("div.c-fund-characteristics")
+            .selectFirst("ul.c-list-info__list")
+            .select("li.c-list-info__item").get(2)
+            .selectFirst("li.c-list-info__value");
+    result.addProperty("gerant",gerant.text());
+
+
+    Element categories = doc.selectFirst("div.c-fund-characteristics")
+            .select("ul.c-list-info__list").get(1);
+    Element categoryGen = categories.select("li.c-list-info__item").get(0).selectFirst("p.c-list-info__value").selectFirst("a");
+    Element categoryMS = categories.select("li.c-list-info__item").get(1).selectFirst("p.c-list-info__value").selectFirst("a");
+    Element categoryAMF = categories.select("li.c-list-info__item").get(2).selectFirst("p.c-list-info__value").selectFirst("a");
+
+    result.addProperty("categGenerale",categoryGen.text());
+    result.addProperty("categMS",categoryMS.text());
+    result.addProperty("categAMF",categoryAMF.text());
 
   }
 
