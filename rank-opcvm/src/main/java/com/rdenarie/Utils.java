@@ -44,7 +44,7 @@ public class Utils {
 
 
     public static String getBoursoResponse(String urlString) throws IOException {
-
+        System.out.println("Call url "+urlString);
         URL url = new URL(urlString);
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 

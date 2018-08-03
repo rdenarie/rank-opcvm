@@ -70,19 +70,23 @@ public class CategoriesService  extends HttpServlet {
 
             if (boursoResponse != null) {
                 Document doc = Jsoup.parse(boursoResponse);
-                int pageNumber = new Integer(doc.selectFirst("span.c-pagination__content.is-active").text()).intValue();
                 Elements links = doc.selectFirst("div.c-tabs__content.is-active").select("a[href^=/bourse/opcvm/cours/]");
                 //System.out.println(doc.selectFirst("div.c-tabs__content.is-active").html());
                 for (Element link : links) {
                     String[] splitted = link.attr("href").split("/");
                     result.add(splitted[splitted.length - 1]+"#"+personalCategoryName);
                 }
-                pageNumber++;
-                nextPage = doc.selectFirst("a[href^=/bourse/opcvm/recherche/page-"+pageNumber+"]");
-                if (nextPage != null) {
-                    System.out.println("Goto Page "+pageNumber);
-                    url = nextPage.attr("href");
+                Element pageNumberElement = doc.selectFirst("span.c-pagination__content.is-active");
+                if (pageNumberElement==null) {
+                    nextPage=null;
                 } else {
+                    int pageNumber = new Integer(pageNumberElement.text()).intValue();
+                    pageNumber++;
+                    nextPage = doc.selectFirst("a[href^=/bourse/opcvm/recherche/page-" + pageNumber + "]");
+                    if (nextPage != null) {
+                        System.out.println("Goto Page " + pageNumber);
+                        url = nextPage.attr("href");
+                    }
                 }
             }
         } while (nextPage!=null);
@@ -321,7 +325,6 @@ public class CategoriesService  extends HttpServlet {
 
         try {
             String url = "https://www.boursorama.com" + absolutePart;
-
             return Utils.getBoursoResponse(url);
         } catch (IOException e) {
             return null;
