@@ -6,4 +6,13 @@
   <welcome-file-list>
     <welcome-file>index.jsp</welcome-file>
   </welcome-file-list>
+  <servlet>
+    <servlet-name>getDataServlet</servlet-name>
+    <servlet-class>com.rdenarie.GetDataServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>getDataServlet</servlet-name>
+    <url-pattern>/getData</url-pattern>
+  </servlet-mapping>
+
 </web-app>

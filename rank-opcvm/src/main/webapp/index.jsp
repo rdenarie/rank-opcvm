@@ -1,23 +1,69 @@
 <!DOCTYPE html>
-<%@ page contentType="text/html;charset=UTF-8" language="java" %>
-<%@ page import="com.rdenarie.HelloAppEngine" %>
+
 <html>
-<head>
-  <link href='//fonts.googleapis.com/css?family=Marmelad' rel='stylesheet' type='text/css'>
-  <title>Hello App Engine Standard Java 8</title>
 </head>
-<body>
-    <h1>Hello App Engine -- Java 8!</h1>
+    <body>
 
-  <p>This is <%= HelloAppEngine.getInfo() %>.</p>
-  <table>
-    <tr>
-      <td colspan="2" style="font-weight:bold;">Available Servlets:</td>
-    </tr>
-    <tr>
-      <td><a href='/hello'>Hello App Engine</a></td>
-    </tr>
-  </table>
+        <style>
+            #dataTable, #title {
+                text-align:center;
+            }
 
-</body>
+        </style>
+        <!--
+        <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
+        -->
+        <script type="text/javascript" src="./jsLocal/loader.js"></script>
+        <!--
+            <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1/jquery.min.js"></script>
+        -->
+        <script type="text/javascript" src="./jsLocal/jquery.min.js"></script>
+
+        <div id="title">
+            <h1>
+
+            </h1>
+        </div>
+
+        <div id="dataTable">
+
+        </div>
+
+
+         <script type="text/javascript">
+                google.charts.load('current', {'packages':['table']});
+                google.charts.setOnLoadCallback(drawTable);
+                console.log("avant");
+                function drawTable() {
+                    var jsonData = $.ajax({
+                        url: "getData",
+                        dataType: "json",
+                        success : function(jsonData)
+                        {
+
+                            var date = jsonData.date;
+
+                            $("#title h1").html("Donn&eacutees du "+date);
+
+                            var data =  new google.visualization.DataTable(jsonData.data,0.6)
+                            var options = {
+                                sortColumn: 1,
+                                sortAscending: false,
+                                showRowNumber: true,
+                                width: '100%',
+                                height: '100%'
+                            };
+
+
+                            var table = new google.visualization.Table(document.getElementById('dataTable'));
+                            table.draw(data, options);
+
+                        }
+                    });
+
+                }
+
+         </script>
+
+    </body>
 </html>

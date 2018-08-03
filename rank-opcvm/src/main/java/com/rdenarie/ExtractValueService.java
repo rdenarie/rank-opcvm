@@ -1,53 +1,44 @@
 package com.rdenarie;
 
-import com.google.appengine.api.utils.SystemProperty;
+import com.google.appengine.api.datastore.DatastoreService;
+import com.google.appengine.api.datastore.DatastoreServiceFactory;
+import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.repackaged.com.google.gson.JsonObject;
-
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.MalformedURLException;
-import java.net.URL;
-import java.net.URLConnection;
-import java.text.DecimalFormat;
-import java.util.Properties;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import org.jsoup.select.Elements;
 
-import static com.google.appengine.repackaged.com.google.api.client.http.HttpStatusCodes.isRedirect;
+import javax.servlet.annotation.WebServlet;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.util.Calendar;
 
-@WebServlet(name = "OpcvmService", value = "/opcvmService")
-public class OpcvmService extends HttpServlet {
+@WebServlet(name = "ExtractValueService", value = "/extractValueService")
+public class ExtractValueService extends HttpServlet {
 
-  String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
+  static String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
 
   @Override
   public void doGet(HttpServletRequest request, HttpServletResponse response)
       throws IOException {
-
-    Properties properties = System.getProperties();
     String id=request.getParameter("id");
+    JsonObject result = getValue(id, false,"TBD Claude Category");
+    response.setContentType("application/json");
+    response.getWriter().println(result == null ? "" : result.toString());
+  }
 
+  public static JsonObject getValue(String id, boolean isBoursoId, String categoryPersoName) {
     JsonObject result = new JsonObject();
 
-
     try {
-      String boursoResponse = getBoursoResponse(id);
+      String boursoResponse = isBoursoId ? getFondValueOnBoursoByBoursoId(id ) : getFondValueOnBoursoByIsin(id);
 
       Document doc = Jsoup.parse(boursoResponse);
 
-      result.addProperty("id",id);
+      extractIsin(result, doc);
       extractValues(result, doc);
       JsonObject values = result.getAsJsonObject("values");
       double scoreFond=calculScore(values.getAsJsonObject("fond"));
@@ -63,16 +54,39 @@ public class OpcvmService extends HttpServlet {
       extractCostsConditions(result,doc);
       extractFacePrice(result,doc);
       extractGerant(result,doc);
+      result.addProperty(Utils.CATEGORY_PERSO_PROPERTY,categoryPersoName);
+
+
     } catch (Exception e) {
+      storeException(id,e);
       e.printStackTrace();
+      return null;
+
 
     }
-    response.setContentType("application/json");
-    response.getWriter().println(result.toString());
+    return result;
+  }
+
+  private static void extractIsin(JsonObject result, Document boursoResponse) {
+    Element name = boursoResponse.selectFirst("h2.c-faceplate__isin");
+    result.addProperty("id",name.text().split(" - ")[0]);
+  }
+
+  private static void storeException(String id, Exception e) {
+    DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+    Entity exceptionElement = new Entity(Utils.EXCEPTION_ENTITY);
+    Calendar now = Calendar.getInstance();
+    exceptionElement.setProperty("id", id);
+    exceptionElement.setProperty("date", now.getTime());
+    exceptionElement.setProperty("stack", e.toString());
+    exceptionElement.setProperty("message", e.getMessage());
+    datastore.put(exceptionElement);
+
+
   }
 
 
-  private double calculScore(JsonObject object) {
+  private static double calculScore(JsonObject object) {
     double score;
     int current = 1;
     int nbElement=0;
@@ -97,7 +111,7 @@ public class OpcvmService extends HttpServlet {
 
   }
 
-  private int calculScorePercentile(JsonObject object) {
+  private static int calculScorePercentile(JsonObject object) {
     double score;
     int current = 1;
     int nbElement=0;
@@ -120,7 +134,7 @@ public class OpcvmService extends HttpServlet {
     return (int) Math.round(score);
   }
 
-  private void extractValues(JsonObject result, Document boursoResponse) {
+  private static void extractValues(JsonObject result, Document boursoResponse) {
 
     Element fundPerf = boursoResponse.selectFirst("div.c-fund-performances__table");
 
@@ -158,52 +172,29 @@ public class OpcvmService extends HttpServlet {
     result.add("values", values);
   }
 
-  private void extractName(JsonObject result, Document boursoResponse) {
+  private static void extractName(JsonObject result, Document boursoResponse) {
     Element name = boursoResponse.selectFirst("a.c-faceplate__company-link");
     result.addProperty("name",name.text());
   }
 
-  private void extractMSRating(JsonObject result, Document boursoResponse) {
+  private static void extractMSRating(JsonObject result, Document boursoResponse) {
     Element input = boursoResponse.selectFirst("input.c-rating__check[checked]");
     result.addProperty("msrating",input==null ? "ND" : input.attr("value"));
   }
 
 
-  private String getBoursoResponse(String id) throws IOException {
-
-    URL url = new URL("https://bourse.boursorama.com/recherche/"+id);
-    HttpURLConnection conn = (HttpURLConnection) url.openConnection();
-
-    String myCookie = "B20_TRADING_ENABLED=1";
-    conn.setRequestProperty("Cookie", myCookie);
 
 
-    int status = conn.getResponseCode();
-    int nbRedirect=0;
-    while (isRedirect(status) && nbRedirect<5) {
-      nbRedirect++;
-      String newUrl = conn.getHeaderField("Location");
-      // open the new connnection again
-      conn = (HttpURLConnection) new URL(newUrl).openConnection();
-      conn.setRequestProperty("Cookie", myCookie);
-      status = conn.getResponseCode();
-    }
+  public static String getFondValueOnBoursoByIsin(String id) throws IOException {
+    return Utils.getBoursoResponse("https://bourse.boursorama.com/recherche/"+id);
 
-    InputStream inputStream = conn.getInputStream();
-    BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-    StringBuffer response = new StringBuffer();
-    String line;
+  }
+  public static String getFondValueOnBoursoByBoursoId(String id) throws IOException {
+    return Utils.getBoursoResponse("https://www.boursorama.com/bourse/opcvm/cours/"+id);
 
-    while ((line = reader.readLine()) != null) {
-      response.append(line);
-    }
-    reader.close();
-
-
-    return response.toString();
   }
 
-  private void extractCostsConditions(JsonObject result, Document boursoResponse) {
+  private static void extractCostsConditions(JsonObject result, Document boursoResponse) {
 
 
     Element costsConditions = boursoResponse.select("div.c-costs-conditions").first();
@@ -269,10 +260,10 @@ public class OpcvmService extends HttpServlet {
 
   }
 
-  private void extractFacePrice(JsonObject result, Document doc) {
+  private static void extractFacePrice(JsonObject result, Document doc) {
     Element facePrice = doc.select("div.c-faceplate__price").first();
     Element price = facePrice.selectFirst("span");
-    result.addProperty("price",new Double(price.text()));
+    result.addProperty("price",new Double(price.text().replace(" ","")));
 
     Element currentcy = facePrice.select("span").last();
     result.addProperty("currency",currentcy.text());
@@ -285,7 +276,7 @@ public class OpcvmService extends HttpServlet {
 
 
   }
-  private void extractGerant(JsonObject result, Document doc) {
+  private static void extractGerant(JsonObject result, Document doc) {
     Element gerant = doc.selectFirst("div.c-fund-characteristics")
             .selectFirst("ul.c-list-info__list")
             .select("li.c-list-info__item").get(2)
@@ -299,9 +290,12 @@ public class OpcvmService extends HttpServlet {
     Element categoryMS = categories.select("li.c-list-info__item").get(1).selectFirst("p.c-list-info__value").selectFirst("a");
     Element categoryAMF = categories.select("li.c-list-info__item").get(2).selectFirst("p.c-list-info__value").selectFirst("a");
 
-    result.addProperty("categGenerale",categoryGen.text());
-    result.addProperty("categMS",categoryMS.text());
-    result.addProperty("categAMF",categoryAMF.text());
+    result.addProperty(Utils.CATEGORY_GEN_PROPERTY,categoryGen.text());
+    result.addProperty(Utils.CATEGORY_MS_PROPERTY,categoryMS.text());
+    result.addProperty(Utils.CATEGORY_AMF_PROPERTY,categoryAMF.text());
+
+
+
 
   }
 
