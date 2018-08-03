@@ -7,8 +7,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 
-import static com.google.appengine.repackaged.com.google.api.client.http.HttpStatusCodes.isRedirect;
-
 /**
  * Created by Romain Dénarié (romain.denarie@exoplatform.com) on 18/07/18.
  */
@@ -54,7 +52,7 @@ public class Utils {
 
         int status = conn.getResponseCode();
         int nbRedirect=0;
-        while (isRedirect(status) && nbRedirect<5) {
+        while ((status==301 ||status==302)&& nbRedirect<5) {
             nbRedirect++;
             String newUrl = conn.getHeaderField("Location");
             // open the new connnection again

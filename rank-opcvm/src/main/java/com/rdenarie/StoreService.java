@@ -9,8 +9,8 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import com.google.appengine.api.datastore.*;
-import com.google.appengine.repackaged.com.google.gson.JsonObject;
-import com.google.appengine.repackaged.com.google.gson.JsonPrimitive;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 
 import java.util.*;
 
