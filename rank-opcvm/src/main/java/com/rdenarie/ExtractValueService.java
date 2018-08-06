@@ -19,6 +19,8 @@ import java.util.Calendar;
 @WebServlet(name = "ExtractValueService", value = "/extractValueService")
 public class ExtractValueService extends HttpServlet {
 
+
+
   static String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
 
   @Override

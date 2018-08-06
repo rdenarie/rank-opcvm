@@ -326,12 +326,8 @@ public class CategoriesService  extends HttpServlet {
 
     public static String getCategoriesBoursoResponse(String absolutePart) {
 
-        try {
-            String url = "https://www.boursorama.com" + absolutePart;
-            return Utils.getBoursoResponse(url);
-        } catch (IOException e) {
-            return null;
-        }
+        String url = "https://www.boursorama.com" + absolutePart;
+        return Utils.getBoursoResponse(url);
 
     }
 }

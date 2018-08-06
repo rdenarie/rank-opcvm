@@ -13,6 +13,12 @@ import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
 import java.util.*;
+import java.util.logging.Logger;
+
+import com.google.appengine.api.taskqueue.Queue;
+import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.appengine.api.taskqueue.TaskOptions;
+
 
 
 /**
@@ -21,15 +27,17 @@ import java.util.*;
 
 @WebServlet(name = "StoreService", value = "/storeService")
 public class StoreService extends HttpServlet {
-
+    private static final Logger log = Logger.getLogger(StoreService.class.getName());
+    private static final int MAX_CHUNCK = 100;
 
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         String id=request.getParameter("id");
+        Boolean isBoursoId=request.getParameter("isBoursoId")!= null ? request.getParameter("isBoursoId").equals("true") : false;
         if (id!=null) {
-            store(id,false);
+            store(id,isBoursoId);
             //storeOld();
             response.getWriter().println("Finished");
 
@@ -90,9 +98,11 @@ public class StoreService extends HttpServlet {
     }
 
     private static void store(String id, boolean isBoursoId) {
+        log.info("Store opcvm with id "+id+", isBoursoId:"+isBoursoId);
         List<Entity> entityList = new ArrayList<>();
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         entityList.addAll(getEntitiesListToStore(id, isBoursoId));
+        log.info("Found "+entityList.size()+" entities to store.");
         datastore.put(entityList);
     }
 
@@ -104,6 +114,7 @@ public class StoreService extends HttpServlet {
         String categoryPersoName = splitted.length==2 ? splitted[1] : "TBD Claude Category";
 
         JsonObject jsonObject= ExtractValueService.getValue(id,isBoursoId,categoryPersoName);
+        log.finer("Value extracted : "+jsonObject);
 
         if (jsonObject!=null) {
             Calendar now = Calendar.getInstance();
@@ -161,29 +172,28 @@ public class StoreService extends HttpServlet {
 
 
     private static void storeAll() {
-
-        Calendar startTime = Calendar.getInstance();
+        log.info("Store all opcvm");
 
         List<String> fonds = CategoriesService.getIdFonds();
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        List<Entity> entityList = new ArrayList<>();
         int current=1;
         for (String fond : fonds) {
-            System.out.println("Store fond "+current+"/"+fonds.size()+"");
-            entityList.addAll(getEntitiesListToStore(fond, true));
+            log.info("Queue fond "+current+"/"+fonds.size()+"");
+            //todo change default queue
+            Queue queue = QueueFactory.getDefaultQueue();
+            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
             current++;
         }
 
-        Calendar endTime = Calendar.getInstance();
 
-        Entity durationImportationElement = new Entity(Utils.DURATION_IMPORTATION_ELEMENT_ENTITY);
-        durationImportationElement.setProperty("startTime",startTime.getTime());
-        durationImportationElement.setProperty("endTime",endTime.getTime());
-        Long duration = endTime.getTimeInMillis()-startTime.getTimeInMillis();
-        durationImportationElement.setProperty("duration",duration);
-        entityList.add(durationImportationElement);
-        datastore.put(entityList);
 
+    }
+
+    private static void checkAndStoreIfNeeded(List<Entity> entityList, DatastoreService datastore) {
+        if (entityList.size()>=MAX_CHUNCK) {
+            log.info("Entity list size : "+entityList.size()+", need to store");
+            datastore.put(entityList);
+            entityList.clear();
+        }
 
     }
 

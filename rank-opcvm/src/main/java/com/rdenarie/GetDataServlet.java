@@ -28,29 +28,34 @@ public class GetDataServlet extends HttpServlet {
             throws IOException {
 
         Entity lastDate= getLastDate();
-        List<Entity> datas;
-        JsonObject jsonData = new JsonObject();
-        addColumnNames(jsonData);
-        JsonArray arrayValues = new JsonArray();
-        datas = getDataByDate(lastDate);
-        for (Entity data : datas) {
-            arrayValues.add(createJsonObjectValueRow(data));
+        if (lastDate==null) {
+            response.sendError(HttpServletResponse.SC_NOT_FOUND);
+        } else {
+            List<Entity> datas;
+            JsonObject jsonData = new JsonObject();
+            addColumnNames(jsonData);
+            JsonArray arrayValues = new JsonArray();
+            datas = getDataByDate(lastDate);
+            for (Entity data : datas) {
+                arrayValues.add(createJsonObjectValueRow(data));
+            }
+
+            jsonData.add("rows", arrayValues);
+
+            JsonObject result = new JsonObject();
+
+            Date date = (Date) lastDate.getProperty("date");
+            Calendar cal = Calendar.getInstance();
+            cal.setTime(date);
+
+            result.addProperty("date", cal.get(Calendar.DAY_OF_MONTH) + "/" + (cal.get(Calendar.MONTH) + 1) + "/" + cal.get(Calendar.YEAR));
+
+            result.add("data", jsonData);
+
+            response.setContentType("application/json");
+            response.setCharacterEncoding("UTF-8");
+            response.getWriter().write(result.toString());
         }
-
-        jsonData.add("rows",arrayValues);
-
-        JsonObject result = new JsonObject();
-
-        Date date = (Date)lastDate.getProperty("date");
-        Calendar cal = Calendar.getInstance();
-        cal.setTime(date);
-
-        result.addProperty("date",cal.get(Calendar.DAY_OF_MONTH)+"/"+(cal.get(Calendar.MONTH)+1)+"/"+cal.get(Calendar.YEAR));
-        result.add("data",jsonData);
-
-        response.setContentType("application/json");
-        response.setCharacterEncoding("UTF-8");
-        response.getWriter().write(result.toString());
     }
 
     private JsonObject createJsonObjectValueRow(Entity data) {
@@ -105,7 +110,7 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.TICKET_IN_PROPERTY,"Ticket Initial","","string"));
         columns.add(createJsonObjectColumnName(Utils.TICKET_RENEW_PROPERTY,"Ticket Renew","","string"));
         columns.add(createJsonObjectColumnName(Utils.ID_PROPERTY,"Code ISIN","","string"));
-        columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"Frais Courant (dont gestion)","","string"));
+        columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"Frais Courant","","string"));
         columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en milliers)","","number"));
         columns.add(createJsonObjectColumnName(Utils.GERANT_PROPERTY,"Gérant","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
@@ -131,7 +136,9 @@ public class GetDataServlet extends HttpServlet {
         Query q = new Query(Utils.TIME_ELEMENT_ENTITY).addSort("date", Query.SortDirection.DESCENDING);
 
         PreparedQuery pq = datastore.prepare(q);
-        return pq.asList(FetchOptions.Builder.withLimit(1)).get(0);
+        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
+        if (entities!=null && entities.size()>0) return entities.get(0);
+        else return null;
 
     }
 

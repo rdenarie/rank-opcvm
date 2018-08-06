@@ -6,6 +6,8 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
+import java.util.Calendar;
+import java.util.logging.Logger;
 
 /**
  * Created by Romain Dénarié (romain.denarie@exoplatform.com) on 18/07/18.
@@ -41,37 +43,43 @@ public class Utils {
     public static final String DURATION_IMPORTATION_ELEMENT_ENTITY = "DurationEntity";
 
 
-    public static String getBoursoResponse(String urlString) throws IOException {
-        System.out.println("Call url "+urlString);
-        URL url = new URL(urlString);
-        HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+    private static final Logger log = Logger.getLogger(Utils.class.getName());
 
-        String myCookie = "B20_TRADING_ENABLED=1";
-        conn.setRequestProperty("Cookie", myCookie);
-
-
-        int status = conn.getResponseCode();
-        int nbRedirect=0;
-        while ((status==301 ||status==302)&& nbRedirect<5) {
-            nbRedirect++;
-            String newUrl = conn.getHeaderField("Location");
-            // open the new connnection again
-            conn = (HttpURLConnection) new URL(newUrl).openConnection();
+    public static String getBoursoResponse(String urlString) {
+        log.fine("Call url "+urlString);
+        Long startTime = Calendar.getInstance().getTimeInMillis();
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+            String myCookie = "B20_TRADING_ENABLED=1";
             conn.setRequestProperty("Cookie", myCookie);
-            status = conn.getResponseCode();
+
+
+            int respCode = conn.getResponseCode(); // New items get NOT_FOUND on PUT
+            if (respCode == HttpURLConnection.HTTP_OK || respCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                StringBuffer response = new StringBuffer();
+                String line;
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                return response.toString();
+            } else {
+                return null;
+            }
+        } catch (IOException IO) {
+            log.info("Unable to get url content "+urlString+"," +IO.getStackTrace());
+        } finally {
+            Long endTime = Calendar.getInstance().getTimeInMillis();
+            Long duration=endTime - startTime;
+            log.fine("Get url "+urlString+" gets "+duration);
         }
 
-        InputStream inputStream = conn.getInputStream();
-        BufferedReader reader = new BufferedReader(new InputStreamReader(inputStream));
-        StringBuffer response = new StringBuffer();
-        String line;
-
-        while ((line = reader.readLine()) != null) {
-            response.append(line);
-        }
-        reader.close();
-
-
-        return response.toString();
+        return null;
     }
 }
