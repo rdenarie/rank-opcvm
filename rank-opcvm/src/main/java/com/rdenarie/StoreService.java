@@ -30,6 +30,20 @@ public class StoreService extends HttpServlet {
     private static final Logger log = Logger.getLogger(StoreService.class.getName());
     private static final int MAX_CHUNCK = 100;
 
+    public static Entity getTodayTimeElement() {
+
+        try {
+            DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+            Calendar now = Calendar.getInstance();
+            String keyString=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
+            Key key = KeyFactory.createKey(Utils.TIME_ELEMENT_ENTITY, keyString);
+
+            return datastore.get(key);
+        } catch (EntityNotFoundException e) {
+            return null;
+        }
+    }
+
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -46,64 +60,15 @@ public class StoreService extends HttpServlet {
             response.getWriter().println("Finished");
         }
     }
-
-    private static void storeOld() {
-
-        //mockup to create passed dates
-
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        List<Entity> entityList = new ArrayList<>();
-
-        Calendar now = Calendar.getInstance();
-        now.add(Calendar.MONTH,-1);
-        String key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
-
-        Entity timeElement = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-        timeElement.setProperty("date", now.getTime());
-        entityList.add(timeElement);
-
-        now.add(Calendar.MONTH,-1);
-        key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
-
-        Entity timeElement2 = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-        timeElement2.setProperty("date", now.getTime());
-        entityList.add(timeElement2);
-
-        now.add(Calendar.MONTH,-1);
-        key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
-
-        Entity timeElement3 = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-        timeElement3.setProperty("date", now.getTime());
-        entityList.add(timeElement3);
-
-
-        now.add(Calendar.MONTH,-1);
-        key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
-
-        Entity timeElement4 = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-        timeElement4.setProperty("date", now.getTime());
-        entityList.add(timeElement4);
-
-        now.add(Calendar.MONTH,-1);
-        key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
-
-        Entity timeElement5 = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-        timeElement5.setProperty("date", now.getTime());
-        entityList.add(timeElement5);
-
-
-        datastore.put(entityList);
-
-
-    }
-
     private static void store(String id, boolean isBoursoId) {
         log.info("Store opcvm with id "+id+", isBoursoId:"+isBoursoId);
         List<Entity> entityList = new ArrayList<>();
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         entityList.addAll(getEntitiesListToStore(id, isBoursoId));
         log.info("Found "+entityList.size()+" entities to store.");
-        datastore.put(entityList);
+        if (entityList.size()>0) {
+            datastore.put(entityList);
+        }
     }
 
     private static List<Entity> getEntitiesListToStore(String idAndCategory, boolean isBoursoId) {
@@ -120,19 +85,23 @@ public class StoreService extends HttpServlet {
             Calendar now = Calendar.getInstance();
             String key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
 
-            Entity timeElement = new Entity(Utils.TIME_ELEMENT_ENTITY,key);
-            timeElement.setProperty("date", now.getTime());
-            entityList.add(timeElement);
+
+            Entity timeElement = getTodayTimeElement();
+            if (timeElement==null) {
+                timeElement=new Entity(Utils.TIME_ELEMENT_ENTITY, key);
+                timeElement.setProperty("date", now.getTime());
+                entityList.add(timeElement);
+            }
 
             Entity dataEntry = new Entity(Utils.DATA_ENTRY_ENTITY, id, timeElement.getKey());
-            Entity dataFond = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
-            Entity dataCategory = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
-            Entity dataPercentile = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
+            //Entity dataFond = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
+            //Entity dataCategory = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
+            //Entity dataPercentile = new Entity(Utils.VALUE_ENTITY,dataEntry.getKey());
 
             entityList.add(dataEntry);
-            entityList.add(dataFond);
-            entityList.add(dataCategory);
-            entityList.add(dataPercentile);
+            //entityList.add(dataFond);
+            //entityList.add(dataCategory);
+            //entityList.add(dataPercentile);
 
 
 
@@ -149,19 +118,21 @@ public class StoreService extends HttpServlet {
                         dataEntry.setProperty((String) entry.getKey(), value.getAsBoolean());
                     }
                 } else {
-                    for (Map.Entry subEntry : ((JsonObject) entry.getValue()).entrySet()) {
-                        for (Map.Entry subSubEntry : ((JsonObject) subEntry.getValue()).entrySet()) {
-                            if (subEntry.getKey().equals("fond")) {
-                                dataFond.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue().toString());
-                            } else if (subEntry.getKey().equals("category")) {
-                                dataCategory.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue().toString());
-                            } else if (subEntry.getKey().equals("percentile")) {
-                                dataPercentile.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue()
-                                        .toString());
-                            }
-
-                        }
-                    }
+                    dataEntry.setProperty((String)entry.getKey(), entry.getValue().toString());
+//                    for (Map.Entry subEntry : ((JsonObject) entry.getValue()).entrySet()) {
+//                        log.info(entry.getValue().toString());
+//                        for (Map.Entry subSubEntry : ((JsonObject) subEntry.getValue()).entrySet()) {
+//                            if (subEntry.getKey().equals("fond")) {
+//                                dataFond.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue().toString());
+//                            } else if (subEntry.getKey().equals("category")) {
+//                                dataCategory.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue().toString());
+//                            } else if (subEntry.getKey().equals("percentile")) {
+//                                dataPercentile.setProperty((String) subSubEntry.getKey(), subSubEntry.getValue()
+//                                        .toString());
+//                            }
+//
+//                        }
+//                    }
 
                 }
 
@@ -173,6 +144,16 @@ public class StoreService extends HttpServlet {
 
     private static void storeAll() {
         log.info("Store all opcvm");
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Entity timeElement = getTodayTimeElement();
+        if (timeElement==null) {
+            Calendar now = Calendar.getInstance();
+            String key=now.get(Calendar.YEAR)+"-"+(now.get(Calendar.MONTH)+1)+"-"+now.get(Calendar.DAY_OF_MONTH);
+            timeElement=new Entity(Utils.TIME_ELEMENT_ENTITY, key);
+            timeElement.setProperty("date", now.getTime());
+            datastore.put(timeElement);
+        }
+
 
         List<String> fonds = CategoriesService.getIdFonds();
         int current=1;
@@ -183,9 +164,6 @@ public class StoreService extends HttpServlet {
             queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
             current++;
         }
-
-
-
     }
 
     private static void checkAndStoreIfNeeded(List<Entity> entityList, DatastoreService datastore) {

@@ -17,6 +17,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.logging.Logger;
 
 /**
  * Created by Romain Dénarié (romain.denarie@exoplatform.com) on 14/07/18.
@@ -24,6 +25,7 @@ import java.util.*;
 
 @WebServlet(name = "CategoriesService", value = "/categoriesService")
 public class CategoriesService  extends HttpServlet {
+    private static final Logger log = Logger.getLogger(CategoriesService.class.getName());
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -45,13 +47,14 @@ public class CategoriesService  extends HttpServlet {
 
 
 
-            System.out.println("Treat personal category "+personalCategory.getAsJsonObject().get("categoryName").getAsString() + "("+currentPersonalCategory+"/"+personalCategories.size()+")");
+            log.fine("Treat personal category "+personalCategory.getAsJsonObject().get("categoryName").getAsString() + "("+currentPersonalCategory+"/"+personalCategories.size()+")");
 
             JsonArray categoriesMs = personalCategory.getAsJsonObject().getAsJsonArray("categoriesMs");
             int currentMsCategory = 1;
+            //if  (currentPersonalCategory>2) break;
             for (JsonElement categoryMs : categoriesMs) {
-
-                System.out.println("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
+                //if (currentMsCategory>2) break;
+                log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
                 String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
                 result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
                 currentMsCategory++;

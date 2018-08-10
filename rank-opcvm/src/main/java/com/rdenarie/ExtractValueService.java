@@ -43,6 +43,11 @@ public class ExtractValueService extends HttpServlet {
       extractIsin(result, doc);
       extractValues(result, doc);
       JsonObject values = result.getAsJsonObject("values");
+      if (values.size()==0) {
+        //some opcvm have no score.
+        //ignore it without exception
+        return null;
+      }
       double scoreFond=calculScore(values.getAsJsonObject("fond"));
       double scoreCategory=calculScore(values.getAsJsonObject("category"));
       double scorePercentile=calculScorePercentile(values.getAsJsonObject("percentile"));
@@ -102,6 +107,9 @@ public class ExtractValueService extends HttpServlet {
       current++;
     }
     score=somme/nbElement;
+    if (nbElement==0) {
+      return 0d;
+    }
     if (nbElement>4) {
       score=score+object.get("3ans").getAsDouble();
     } else {
@@ -127,10 +135,13 @@ public class ExtractValueService extends HttpServlet {
       current++;
     }
     score=somme/nbElement;
+    if (nbElement==0) {
+      return 0;
+    }
     if (nbElement>5) {
       score=score+object.get("5ans").getAsInt();
     } else {
-      score=score+object.get(indexes[current-1]).getAsDouble();
+      score = score + object.get(indexes[nbElement - 1]).getAsDouble();
     }
 
     return (int) Math.round(score);
@@ -148,7 +159,7 @@ public class ExtractValueService extends HttpServlet {
       JsonObject listeValue = new JsonObject();
       int j=0;
       for (Element td : tds) {
-        if (!td.text().equals("-")) {
+        if (!td.text().equals("-") && !td.text().equals("")) {
           if (i == 3) {
             //percentile
             listeValue.addProperty(indexes[j], new Integer(td.text().replace("%", "")));
@@ -192,6 +203,12 @@ public class ExtractValueService extends HttpServlet {
 
   }
   public static String getFondValueOnBoursoByBoursoId(String id) throws IOException {
+    try {
+      //need to sleep here to not reach quota of 22Mo/min
+      Thread.sleep(5000);
+    } catch (InterruptedException e) {
+      e.printStackTrace();
+    }
     return Utils.getBoursoResponse("https://www.boursorama.com/bourse/opcvm/cours/"+id);
 
   }
@@ -265,15 +282,23 @@ public class ExtractValueService extends HttpServlet {
   private static void extractFacePrice(JsonObject result, Document doc) {
     Element facePrice = doc.select("div.c-faceplate__price").first();
     Element price = facePrice.selectFirst("span");
-    result.addProperty("price",new Double(price.text().replace(" ","")));
+    result.addProperty(Utils.PRICE_PROPERTY,new Double(price.text().replace(" ","")));
 
     Element currentcy = facePrice.select("span").last();
-    result.addProperty("currency",currentcy.text());
+    result.addProperty(Utils.CURRENCY_PROPERTY,currentcy.text());
+
+    if (currentcy.text().equals("EUR")) {
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,new Double(price.text().replace(" ","")));
+    } else {
+      Element facePriceEur = doc.select("div.c-faceplate__indicative").first();
+      Element priceEur = facePriceEur.selectFirst("span.c-faceplate__indicative-value");
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,new Double(priceEur.text().replace("EUR","").replace(" ","")));
+    }
 
 
     Element faceQuotation = doc.selectFirst("div.c-faceplate__quotation");
     String actif = faceQuotation.select("li.c-list-info__item").get(2).text().split("/")[1].replace(" ","");
-    result.addProperty("actifM",new Double(actif));
+    result.addProperty(Utils.ACTIF_PROPERTY,new Double(actif));
 
 
 

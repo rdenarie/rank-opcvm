@@ -14,6 +14,7 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
+import java.util.logging.Logger;
 
 
 /**
@@ -22,12 +23,15 @@ import java.util.List;
 
 @WebServlet(name = "GetDataServlet", value = "/getDataServlet")
 public class GetDataServlet extends HttpServlet {
+    private static final Logger log = Logger.getLogger(GetDataServlet.class.getName());
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
         Entity lastDate= getLastDate();
+        String category=request.getParameter("category");
+        log.fine("Category in param "+category);
         if (lastDate==null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } else {
@@ -35,7 +39,11 @@ public class GetDataServlet extends HttpServlet {
             JsonObject jsonData = new JsonObject();
             addColumnNames(jsonData);
             JsonArray arrayValues = new JsonArray();
-            datas = getDataByDate(lastDate);
+            if (category==null) {
+                datas = getDataByDate(lastDate);
+            } else {
+                datas = getDataByDateAndCategory(lastDate,category);
+            }
             for (Entity data : datas) {
                 arrayValues.add(createJsonObjectValueRow(data));
             }
@@ -58,6 +66,13 @@ public class GetDataServlet extends HttpServlet {
         }
     }
 
+    private List<Entity> getDataByDateAndCategory(Entity lastDate, String category) {
+        log.fine("getDataByDateAndCategory : "+category);
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).setFilter(new Query.FilterPredicate(Utils.CATEGORY_PERSO_PROPERTY, Query.FilterOperator.EQUAL, category));
+        return datastore.prepare(q).asList(FetchOptions.Builder.withChunkSize(10));
+    }
+
     private JsonObject createJsonObjectValueRow(Entity data) {
 /*
         {"c":[{v: 'a'},{"v":3,"f":null}]}
@@ -70,6 +85,7 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueString(data.getProperty(Utils.SORTIE_PROPERTY).toString()));
         values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.PRICE_PROPERTY).toString()));
         values.add(createJsonObjectValueString(data.getProperty(Utils.CURRENCY_PROPERTY).toString()));
+        values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.PRICE_EUR_PROPERTY).toString()));
         values.add(createJsonObjectValueString(data.getProperty(Utils.TICKET_IN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(data.getProperty(Utils.TICKET_RENEW_PROPERTY).toString()));
         values.add(createJsonObjectValueString(data.getProperty(Utils.ID_PROPERTY).toString()));
@@ -103,15 +119,16 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.NAME_PROPERTY,"Nom","","string"));
         columns.add(createJsonObjectColumnName(Utils.SCORE_FOND_PROPERTY,"Score","","number"));
         columns.add(createJsonObjectColumnName(Utils.MSRATING_PROPERTY,"Etoiles MS","","number"));
-        columns.add(createJsonObjectColumnName(Utils.ENTREE_PROPERTY,"Frais Bourso In","","string"));
-        columns.add(createJsonObjectColumnName(Utils.SORTIE_PROPERTY,"Frais Bourso Out","","string"));
+        columns.add(createJsonObjectColumnName(Utils.ENTREE_PROPERTY,"F-In","","string"));
+        columns.add(createJsonObjectColumnName(Utils.SORTIE_PROPERTY,"F-Out","","string"));
         columns.add(createJsonObjectColumnName(Utils.PRICE_PROPERTY,"Cours","","number"));
         columns.add(createJsonObjectColumnName(Utils.CURRENCY_PROPERTY,"Devise","","string"));
+        columns.add(createJsonObjectColumnName(Utils.PRICE_EUR_PROPERTY,"Cours (EUR)","","number"));
         columns.add(createJsonObjectColumnName(Utils.TICKET_IN_PROPERTY,"Ticket Initial","","string"));
         columns.add(createJsonObjectColumnName(Utils.TICKET_RENEW_PROPERTY,"Ticket Renew","","string"));
         columns.add(createJsonObjectColumnName(Utils.ID_PROPERTY,"Code ISIN","","string"));
-        columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"Frais Courant","","string"));
-        columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en milliers)","","number"));
+        columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"F-Courant","","string"));
+        columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en m)","","number"));
         columns.add(createJsonObjectColumnName(Utils.GERANT_PROPERTY,"Gérant","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_MS_PROPERTY,"Catégorie MS","","string"));

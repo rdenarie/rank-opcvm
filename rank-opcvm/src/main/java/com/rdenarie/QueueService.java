@@ -2,6 +2,7 @@ package com.rdenarie;
 
 import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.QueueFactory;
+import com.google.appengine.api.taskqueue.RetryOptions;
 import com.google.appengine.api.taskqueue.TaskOptions;
 
 import javax.servlet.annotation.WebServlet;
@@ -21,7 +22,7 @@ public class QueueService extends HttpServlet {
             throws IOException {
         //todo change default queue
         Queue queue = QueueFactory.getDefaultQueue();
-        queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET));
+        queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
 
         response.getWriter().println("Task queued");
 

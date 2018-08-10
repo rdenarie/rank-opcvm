@@ -27,6 +27,7 @@ public class Utils {
     public static final String SORTIE_PROPERTY = "sortie";
     public static final String PRICE_PROPERTY = "price";
     public static final String CURRENCY_PROPERTY = "currency";
+    public static final String PRICE_EUR_PROPERTY = "priceEur";
     public static final String TICKET_IN_PROPERTY = "ticketIn";
     public static final String TICKET_RENEW_PROPERTY = "ticketRenew";
     public static final String ID_PROPERTY = "id";
@@ -45,8 +46,18 @@ public class Utils {
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());
 
+    private static final long timerPause = 1000;
+
     public static String getBoursoResponse(String urlString) {
-        log.fine("Call url "+urlString);
+
+        //wait timerPause ms to prevent to hit GAE quota on url fetch (22Mo/min)
+        try {
+            Thread.sleep(timerPause);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        log.finest("Call url "+urlString);
         Long startTime = Calendar.getInstance().getTimeInMillis();
         try {
             URL url = new URL(urlString);
@@ -63,6 +74,7 @@ public class Utils {
                 String line;
 
                 BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+
                 while ((line = reader.readLine()) != null) {
                     response.append(line);
                 }
@@ -73,11 +85,12 @@ public class Utils {
                 return null;
             }
         } catch (IOException IO) {
-            log.info("Unable to get url content "+urlString+"," +IO.getStackTrace());
+            log.info("Unable to get url content "+urlString+"," +IO.getMessage());
+            IO.printStackTrace();
         } finally {
             Long endTime = Calendar.getInstance().getTimeInMillis();
             Long duration=endTime - startTime;
-            log.fine("Get url "+urlString+" gets "+duration);
+            log.finest("Get url "+urlString+" takes "+duration+" ms");
         }
 
         return null;
