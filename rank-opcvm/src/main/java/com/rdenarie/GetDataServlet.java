@@ -45,7 +45,10 @@ public class GetDataServlet extends HttpServlet {
                 datas = getDataByDateAndCategory(lastDate,category);
             }
             for (Entity data : datas) {
-                arrayValues.add(createJsonObjectValueRow(data));
+                JsonObject json = createJsonObjectValueRow(data);
+                if (json!=null) {
+                    arrayValues.add(json);
+                }
             }
 
             jsonData.add("rows", arrayValues);
@@ -96,9 +99,30 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueString(data.getProperty(Utils.CATEGORY_MS_PROPERTY).toString()));
         values.add(createJsonObjectValueString(data.getProperty(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
-        JsonObject result = new JsonObject();
-        result.add("c",values);
-        return result;
+        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
+            JsonObject result = new JsonObject();
+            result.add("c", values);
+            return result;
+        } else {
+            return null;
+        }
+
+    }
+
+    private boolean isTooExpensive(String ticketIn) {
+        System.out.println(ticketIn);
+        if (ticketIn.contains(" ")) {
+            System.out.println("Contains space");
+            String[] arrayIn = ticketIn.split(" ");
+            try {
+                int value = new Integer(arrayIn[0]);
+                System.out.println("Value "+value+", return "+ (value > 10000));
+                return value > 10000;
+            } catch (NumberFormatException NFE) {
+                return false;
+            }
+        }
+        return false;
 
     }
 

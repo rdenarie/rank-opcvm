@@ -46,7 +46,7 @@ public class Utils {
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());
 
-    private static final long timerPause = 1000;
+    private static final long timerPause = 500;
 
     public static String getBoursoResponse(String urlString) {
 

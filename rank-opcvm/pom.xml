@@ -160,6 +160,9 @@
 
       <plugin>
         <artifactId>maven-surefire-plugin</artifactId>
+        <configuration>
+          <useSystemClassLoader>false</useSystemClassLoader>
+        </configuration>
         <version>2.20</version>
       </plugin>
 
