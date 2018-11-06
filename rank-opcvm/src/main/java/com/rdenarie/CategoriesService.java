@@ -67,6 +67,24 @@ public class CategoriesService  extends HttpServlet {
 
     }
 
+    public static List<String> getIdFondsByCategory(JsonElement personalCategory) {
+        List<String> result=new ArrayList<>();
+        log.fine("Treat personal category "+personalCategory.getAsJsonObject().get("categoryName").getAsString());
+
+        JsonArray categoriesMs = personalCategory.getAsJsonObject().getAsJsonArray("categoriesMs");
+        int currentMsCategory = 1;
+        //if  (currentPersonalCategory>2) break;
+        for (JsonElement categoryMs : categoriesMs) {
+            //if (currentMsCategory>2) break;
+            log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
+            String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
+            result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
+            currentMsCategory++;
+        }
+        return result;
+
+    }
+
     private static List<String> getIdFondsByCategorySearchCode(String categorySearchCode,String personalCategoryName) {
         List<String> result=new ArrayList<>();
         String url = "/bourse/opcvm/recherche/?fundSearch%5Bclasse%5D=all&fundSearch%5Bcritgen%5D=morningstar&fundSearch%5Bsouscritgen%5D="+categorySearchCode;

@@ -9,6 +9,9 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 import com.google.appengine.api.datastore.*;
+import com.google.appengine.repackaged.com.google.api.client.json.Json;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 
@@ -50,11 +53,13 @@ public class StoreService extends HttpServlet {
             throws IOException {
         String id=request.getParameter("id");
         Boolean isBoursoId=request.getParameter("isBoursoId")!= null ? request.getParameter("isBoursoId").equals("true") : false;
+        String categoryId = request.getParameter("categoryId");
         if (id!=null) {
-            store(id,isBoursoId);
+            store(id, isBoursoId);
             //storeOld();
             response.getWriter().println("Finished");
-
+        } else if (categoryId!=null) {
+            storeByCategory(categoryId);
         } else {
             storeAll();
             response.getWriter().println("Finished");
@@ -154,16 +159,39 @@ public class StoreService extends HttpServlet {
             datastore.put(timeElement);
         }
 
-
-        List<String> fonds = CategoriesService.getIdFonds();
+        JsonObject categories = CategoriesService.getCategories();
+        JsonArray personalCategories = categories.getAsJsonArray("personalCategories");
         int current=1;
-        for (String fond : fonds) {
-            log.info("Queue fond "+current+"/"+fonds.size()+"");
+
+        for (JsonElement personalCategory : personalCategories) {
+            String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
+            log.info("Queue category "+current+"/"+personalCategories.size()+"");
             //todo change default queue
             Queue queue = QueueFactory.getDefaultQueue();
-            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
+            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("categoryId", categoryId));
             current++;
         }
+
+    }
+
+    private static void storeByCategory(String categoryId) {
+        JsonObject categories = CategoriesService.getCategories();
+        JsonArray personalCategories = categories.getAsJsonArray("personalCategories");
+        for (JsonElement personalCategory : personalCategories) {
+            if (personalCategory.getAsJsonObject().get("categoryName").getAsString().equals(categoryId)) {
+                List<String> fonds = CategoriesService.getIdFondsByCategory(personalCategory);
+                int current=1;
+                for (String fond : fonds) {
+                    log.info("Queue fond "+current+"/"+fonds.size()+"");
+                    //todo change default queue
+                    Queue queue = QueueFactory.getDefaultQueue();
+                    queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
+                    current++;
+                }
+                return;
+            }
+        }
+
     }
 
     private static void checkAndStoreIfNeeded(List<Entity> entityList, DatastoreService datastore) {

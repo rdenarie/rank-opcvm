@@ -114,12 +114,22 @@ public class GetDataServlet extends HttpServlet {
         if (ticketIn.contains(" ")) {
             System.out.println("Contains space");
             String[] arrayIn = ticketIn.split(" ");
-            try {
-                int value = new Integer(arrayIn[0]);
-                System.out.println("Value "+value+", return "+ (value > 10000));
-                return value > 10000;
-            } catch (NumberFormatException NFE) {
-                return false;
+            if (!arrayIn[0].contains(".")) {
+                try {
+                    int value = new Integer(arrayIn[0]);
+                    System.out.println("Value " + value + ", return " + (value > 10000));
+                    return value > 10000;
+                } catch (NumberFormatException NFE) {
+                    return false;
+                }
+            } else {
+                try {
+                    Double value = new Double(arrayIn[0]);
+                    System.out.println("Value " + value + ", return " + (value > 10000d));
+                    return value > 10000;
+                } catch (NumberFormatException NFE) {
+                    return false;
+                }
             }
         }
         return false;
