@@ -2,6 +2,7 @@ package com.rdenarie;
 
 
 import com.google.appengine.api.datastore.*;
+import com.google.appengine.api.datastore.Query.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
@@ -29,10 +30,19 @@ public class GetDataServlet extends HttpServlet {
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
-        Entity lastDate= getLastDate();
+
+        String dateParameter=request.getParameter("date");
+        Entity currentDate;
+        if (dateParameter==null) {
+            currentDate = getLastDate();
+        } else {
+            currentDate=getDateFromParameter(new Date(new Long(dateParameter)));
+        }
+
+
         String category=request.getParameter("category");
-        log.fine("Category in param "+category);
-        if (lastDate==null) {
+
+        if (currentDate==null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } else {
             List<Entity> datas;
@@ -40,9 +50,9 @@ public class GetDataServlet extends HttpServlet {
             addColumnNames(jsonData);
             JsonArray arrayValues = new JsonArray();
             if (category==null) {
-                datas = getDataByDate(lastDate);
+                datas = getDataByDate(currentDate);
             } else {
-                datas = getDataByDateAndCategory(lastDate,category);
+                datas = getDataByDateAndCategory(currentDate,category);
             }
             for (Entity data : datas) {
                 JsonObject json = createJsonObjectValueRow(data);
@@ -55,11 +65,32 @@ public class GetDataServlet extends HttpServlet {
 
             JsonObject result = new JsonObject();
 
-            Date date = (Date) lastDate.getProperty("date");
+            Date date = (Date) currentDate.getProperty("date");
             Calendar cal = Calendar.getInstance();
             cal.setTime(date);
 
             result.addProperty("date", cal.get(Calendar.DAY_OF_MONTH) + "/" + (cal.get(Calendar.MONTH) + 1) + "/" + cal.get(Calendar.YEAR));
+
+
+            Entity previousDateEntity= getPreviousDate(currentDate);
+            if (previousDateEntity!=null) {
+                Date previousDate = (Date) previousDateEntity.getProperty("date");
+                Calendar previousCal = Calendar.getInstance();
+                previousCal.setTime(previousDate);
+                result.addProperty("previousDate", previousCal.get(Calendar.DAY_OF_MONTH) + "/" + (previousCal.get(Calendar.MONTH) + 1) + "/" + previousCal.get(Calendar.YEAR));
+                result.addProperty("previousTime", ((Date) previousDateEntity.getProperty("date")).getTime());
+
+            }
+            Entity nextDateEntity= getNextDate(currentDate);
+            if (nextDateEntity!=null) {
+                Date nextDate = (Date) nextDateEntity.getProperty("date");
+                Calendar nextCal = Calendar.getInstance();
+                nextCal.setTime(nextDate);
+                result.addProperty("nextDate", nextCal.get(Calendar.DAY_OF_MONTH) + "/" + (nextCal.get(Calendar.MONTH) + 1) + "/" + nextCal.get(Calendar.YEAR));
+                result.addProperty("nextTime", ((Date) nextDateEntity.getProperty("date")).getTime());
+
+            }
+
 
             result.add("data", jsonData);
 
@@ -67,6 +98,52 @@ public class GetDataServlet extends HttpServlet {
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(result.toString());
         }
+    }
+
+    private Entity getDateFromParameter(Date date) {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+
+        Filter dateFilter = new FilterPredicate("date", FilterOperator.EQUAL,date);
+
+        Query q = new Query(Utils.TIME_ELEMENT_ENTITY).setFilter(dateFilter).addSort("date", Query.SortDirection.DESCENDING);
+
+        PreparedQuery pq = datastore.prepare(q);
+
+        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
+//        List<Entity> entities = pq.asList(FetchOptions.Builder.withDefaults());
+//        for (Entity current : entities) {
+//            System.out.println(current.getProperty("date"));
+//
+//        }
+//        return null;
+        if (entities!=null && entities.size()>0) return entities.get(0);
+        else return null;
+
+    }
+
+    private Entity getPreviousDate(Entity currentDate) {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Filter dateFilter = new FilterPredicate("date", FilterOperator.LESS_THAN, currentDate.getProperty("date"));
+
+        Query q = new Query(Utils.TIME_ELEMENT_ENTITY).setFilter(dateFilter).addSort("date", Query.SortDirection.DESCENDING);
+
+        PreparedQuery pq = datastore.prepare(q);
+        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
+        if (entities!=null && entities.size()>0) return entities.get(0);
+        else return null;
+
+    }
+    private Entity getNextDate(Entity currentDate) {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Filter dateFilter = new FilterPredicate("date", FilterOperator.GREATER_THAN, currentDate.getProperty("date"));
+
+        Query q = new Query(Utils.TIME_ELEMENT_ENTITY).setFilter(dateFilter).addSort("date", SortDirection.ASCENDING);
+
+        PreparedQuery pq = datastore.prepare(q);
+        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
+        if (entities!=null && entities.size()>0) return entities.get(0);
+        else return null;
+
     }
 
     private List<Entity> getDataByDateAndCategory(Entity lastDate, String category) {
@@ -110,14 +187,11 @@ public class GetDataServlet extends HttpServlet {
     }
 
     private boolean isTooExpensive(String ticketIn) {
-        System.out.println(ticketIn);
         if (ticketIn.contains(" ")) {
-            System.out.println("Contains space");
             String[] arrayIn = ticketIn.split(" ");
             if (!arrayIn[0].contains(".")) {
                 try {
                     int value = new Integer(arrayIn[0]);
-                    System.out.println("Value " + value + ", return " + (value > 10000));
                     return value > 10000;
                 } catch (NumberFormatException NFE) {
                     return false;
@@ -125,7 +199,6 @@ public class GetDataServlet extends HttpServlet {
             } else {
                 try {
                     Double value = new Double(arrayIn[0]);
-                    System.out.println("Value " + value + ", return " + (value > 10000d));
                     return value > 10000;
                 } catch (NumberFormatException NFE) {
                     return false;

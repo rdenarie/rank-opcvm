@@ -2,6 +2,8 @@
 <%@ taglib prefix="fn" uri="http://java.sun.com/jsp/jstl/functions" %>
 
 <html>
+<head>
+ <link rel="stylesheet" href="https://fonts.googleapis.com/icon?family=Material+Icons">
 </head>
     <body>
 
@@ -23,6 +25,23 @@
             top:0;
            }
 
+           #title > h1 {
+            display:inline;
+           }
+
+           #title button {
+            line-height:22px;
+            display:inline-flex;
+           }
+
+           #previousDate {
+            margin-right:10px;
+           }
+
+           #nextDate {
+            margin-left:10px;
+           }
+
         </style>
         <!--
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -33,23 +52,26 @@
         -->
         <script type="text/javascript" src="./jsLocal/jquery.min.js"></script>
         <ul class="listCategory">
-            <li><a href="/index.jsp">Tout</a></li>
-            <li><a href="/index.jsp?category=Afrique et M.O.">Afrique et M.O.</a></li>
-            <li><a href="/index.jsp?category=Allocations Diversifiées">Allocations Diversifiées</a></li>
-            <li><a href="/index.jsp?category=Amérique du Nord">Amérique du Nord</a></li>
-            <li><a href="/index.jsp?category=Asie et Pacifique">Asie et Pacifique</a></li>
-            <li><a href="/index.jsp?category=Europe et Zone Euro">Europe et Zone Euro</a></li>
-            <li><a href="/index.jsp?category=Internationales">Internationales</a></li>
-            <li><a href="/index.jsp?category=Obligataires">Obligataires</a></li>
-            <li><a href="/index.jsp?category=Pays Emergents">Pays Emergents</a></li>
-            <li><a href="/index.jsp?category=Pays Européens">Pays Européens</a></li>
-            <li><a href="/index.jsp?category=Sectoriels">Sectoriels</a></li>
+            <li><a class="linkCategory" href="/index.jsp">Tout</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Afrique et M.O.">Afrique et M.O.</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Allocations Diversifiées">Allocations Diversifiées</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Amérique du Nord">Amérique du Nord</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Asie et Pacifique">Asie et Pacifique</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Europe et Zone Euro">Europe et Zone Euro</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Internationales">Internationales</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Obligataires">Obligataires</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Pays Emergents">Pays Emergents</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Pays Européens">Pays Européens</a></li>
+            <li><a class="linkCategory" href="/index.jsp?category=Sectoriels">Sectoriels</a></li>
         </ul>
         <div id="title">
+            <span id="previousDate" style="display:none"><button id="previousButton"><i class="material-icons">keyboard_arrow_left</i></button></span>
             <h1>
 
             </h1>
+            <span id="nextDate" style="display:none"><button id="nextButton"><i class="material-icons">keyboard_arrow_right</i></button></span>
         </div>
+
         <div class="dashboardDiv">
             <div id="filterDiv">
 
@@ -66,10 +88,32 @@
                 google.charts.load('current', {'packages':['table', 'controls']});
                 google.charts.setOnLoadCallback(drawTable);
                 var url="getData";
+                var dateUrl="/index.jsp";
                 var parameter = "<%=request.getParameter("category")%>";
+                var dateParam = "<%=request.getParameter("date")%>";
                 if (parameter!=null && parameter!="" && parameter!="null") {
                     url+="?category="+parameter;
+                    dateUrl+="?category="+parameter;
+                    if (dateParam!=null && dateParam!="" && dateParam!="null") {
+                        url+="&date="+dateParam;
+                    }
+                }  else  {
+                    if (dateParam!=null && dateParam!="" && dateParam!="null") {
+                        url+="?date="+dateParam;
+                    }
                 }
+
+                if (dateParam!=null) {
+                    console.log("dateParam not null");
+                    $(".linkCategory").each(function() {
+                        if ($(this).attr("href").indexOf("?")!=-1) {
+                            $(this).attr("href",$(this).attr("href")+"&date="+dateParam);
+                        } else {
+                            $(this).attr("href",$(this).attr("href")+"?date="+dateParam);
+                        }
+                    });
+                }
+
                 function drawTable() {
                     var jsonData = $.ajax({
                         url: url,
@@ -78,6 +122,38 @@
                         {
                             var date = jsonData.date;
                             $("#title h1").html("Donn&eacutees du "+date);
+
+                            var previousDate=jsonData.previousDate;
+                            if (previousDate!=null) {
+                                $("#previousButton").append(previousDate);
+                                $("#previousDate").show();
+                                $("#previousButton").click(function() {
+                                    var previousDateUrl=dateUrl;
+                                    if (dateUrl.indexOf("?")==-1) {
+                                        previousDateUrl+="?date="+jsonData.previousTime;
+                                    } else {
+                                        previousDateUrl+="&date="+jsonData.previousTime;
+                                    }
+                                    window.location = previousDateUrl;
+                                });
+                            }
+
+
+                            var nextDate=jsonData.nextDate;
+                            if (nextDate!=null) {
+                                $("#nextButton").append(nextDate);
+                                $("#nextDate").show();
+                                $("#nextButton").click(function() {
+                                    var nextDateUrl=dateUrl;
+                                    if (dateUrl.indexOf("?")==-1) {
+                                        nextDateUrl+="?date="+jsonData.nextTime;
+                                    } else {
+                                        nextDateUrl+="&date="+jsonData.nextTime;
+                                    }
+                                    window.location = nextDateUrl;
+                                });
+
+                            }
 
 
                             var data =  new google.visualization.DataTable(jsonData.data,0.6)
