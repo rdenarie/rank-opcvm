@@ -53,13 +53,15 @@ public class StoreService extends HttpServlet {
             throws IOException {
         String id=request.getParameter("id");
         Boolean isBoursoId=request.getParameter("isBoursoId")!= null ? request.getParameter("isBoursoId").equals("true") : false;
+        String categoryMsId = request.getParameter("categoryMsId");
         String categoryId = request.getParameter("categoryId");
+
         if (id!=null) {
             store(id, isBoursoId);
             //storeOld();
             response.getWriter().println("Finished");
-        } else if (categoryId!=null) {
-            storeByCategory(categoryId);
+        } else if (categoryMsId!=null && categoryId!=null) {
+            storeByMsCategory(categoryMsId,categoryId);
         } else {
             storeAll();
             response.getWriter().println("Finished");
@@ -164,31 +166,47 @@ public class StoreService extends HttpServlet {
         int current=1;
 
         for (JsonElement personalCategory : personalCategories) {
+            JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
             String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
-            log.info("Queue category "+current+"/"+personalCategories.size()+"");
-            //todo change default queue
-            Queue queue = QueueFactory.getDefaultQueue();
-            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("categoryId", categoryId));
+
+            int currentMs=1;
+            for (JsonElement msCategory : msCategories) {
+                String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
+                //todo change default queue
+                Queue queue = QueueFactory.getQueue("slow-queue");
+                queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("categoryMsId", categoryMsId).param("categoryId", categoryId));
+                log.info("Queue msCategory "+currentMs+"/"+msCategories.size()+"");
+                currentMs++;
+            }
+
+            log.info("Queue personnal category "+current+"/"+personalCategories.size()+"");
             current++;
         }
 
     }
 
-    private static void storeByCategory(String categoryId) {
+    private static void storeByMsCategory(String categoryMsId, String categoryId) {
+        log.info("Store categoryMsId : "+categoryMsId+", categoryId : "+categoryId);
+
+
         JsonObject categories = CategoriesService.getCategories();
         JsonArray personalCategories = categories.getAsJsonArray("personalCategories");
         for (JsonElement personalCategory : personalCategories) {
             if (personalCategory.getAsJsonObject().get("categoryName").getAsString().equals(categoryId)) {
-                List<String> fonds = CategoriesService.getIdFondsByCategory(personalCategory);
-                int current=1;
-                for (String fond : fonds) {
-                    log.info("Queue fond "+current+"/"+fonds.size()+"");
-                    //todo change default queue
-                    Queue queue = QueueFactory.getDefaultQueue();
-                    queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
-                    current++;
+                JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
+                for (JsonElement msCategory : msCategories) {
+                    List<String> fonds = CategoriesService.getIdFondsByMsCategory(msCategory, personalCategory);
+                    int current=1;
+                    for (String fond : fonds) {
+                        log.info("Queue fond "+current+"/"+fonds.size()+"");
+                        //todo change default queue
+                        Queue queue = QueueFactory.getQueue("slow-queue");
+                        queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
+                        current++;
+                    }
+                    return;
+
                 }
-                return;
             }
         }
 

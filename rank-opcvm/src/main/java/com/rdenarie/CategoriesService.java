@@ -67,20 +67,13 @@ public class CategoriesService  extends HttpServlet {
 
     }
 
-    public static List<String> getIdFondsByCategory(JsonElement personalCategory) {
+    public static List<String> getIdFondsByMsCategory(JsonElement categoryMs, JsonElement personalCategory) {
         List<String> result=new ArrayList<>();
-        log.fine("Treat personal category "+personalCategory.getAsJsonObject().get("categoryName").getAsString());
 
-        JsonArray categoriesMs = personalCategory.getAsJsonObject().getAsJsonArray("categoriesMs");
-        int currentMsCategory = 1;
-        //if  (currentPersonalCategory>2) break;
-        for (JsonElement categoryMs : categoriesMs) {
-            //if (currentMsCategory>2) break;
-            log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
-            String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
-            result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
-            currentMsCategory++;
-        }
+        log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString());
+        String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
+        result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
+
         return result;
 
     }

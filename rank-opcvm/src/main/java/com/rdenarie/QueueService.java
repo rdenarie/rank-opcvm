@@ -21,7 +21,7 @@ public class QueueService extends HttpServlet {
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
         //todo change default queue
-        Queue queue = QueueFactory.getDefaultQueue();
+        Queue queue = QueueFactory.getQueue("slow-queue");
         queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
 
         response.getWriter().println("Task queued");

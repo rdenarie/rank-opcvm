@@ -15,10 +15,12 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Calendar;
+import java.util.logging.Logger;
 
 @WebServlet(name = "ExtractValueService", value = "/extractValueService")
 public class ExtractValueService extends HttpServlet {
 
+  private static final Logger log = Logger.getLogger(ExtractValueService.class.getName());
 
 
   static String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
@@ -40,29 +42,32 @@ public class ExtractValueService extends HttpServlet {
 
       Document doc = Jsoup.parse(boursoResponse);
 
-      extractIsin(result, doc);
-      extractValues(result, doc);
-      JsonObject values = result.getAsJsonObject("values");
-      if (values.size()==0) {
-        //some opcvm have no score.
-        //ignore it without exception
+      String isin = extractIsin(result, doc);
+      if (isin!=null) {
+        extractValues(result, doc);
+        JsonObject values = result.getAsJsonObject("values");
+        if (values.size() == 0) {
+          //some opcvm have no score.
+          //ignore it without exception
+          return null;
+        }
+        double scoreFond = calculScore(values.getAsJsonObject("fond"));
+        double scoreCategory = calculScore(values.getAsJsonObject("category"));
+        double scorePercentile = calculScorePercentile(values.getAsJsonObject("percentile"));
+        result.addProperty("scoreFond", scoreFond);
+        result.addProperty("scoreCategory", scoreCategory);
+        result.addProperty("scorePercentile", scorePercentile);
+
+        extractName(result, doc);
+        extractMSRating(result, doc);
+
+        extractCostsConditions(result, doc);
+        extractFacePrice(result, doc);
+        extractGerant(result, doc);
+        result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
+      } else {
         return null;
       }
-      double scoreFond=calculScore(values.getAsJsonObject("fond"));
-      double scoreCategory=calculScore(values.getAsJsonObject("category"));
-      double scorePercentile=calculScorePercentile(values.getAsJsonObject("percentile"));
-      result.addProperty("scoreFond",scoreFond);
-      result.addProperty("scoreCategory",scoreCategory);
-      result.addProperty("scorePercentile",scorePercentile);
-
-      extractName(result,doc);
-      extractMSRating(result,doc);
-
-      extractCostsConditions(result,doc);
-      extractFacePrice(result,doc);
-      extractGerant(result,doc);
-      result.addProperty(Utils.CATEGORY_PERSO_PROPERTY,categoryPersoName);
-
 
     } catch (Exception e) {
       storeException(id,e);
@@ -74,9 +79,11 @@ public class ExtractValueService extends HttpServlet {
     return result;
   }
 
-  private static void extractIsin(JsonObject result, Document boursoResponse) {
+  private static String extractIsin(JsonObject result, Document boursoResponse) {
     Element name = boursoResponse.selectFirst("h2.c-faceplate__isin");
+    if (name==null) return null;
     result.addProperty("id",name.text().split(" - ")[0]);
+    return name.text().split(" - ")[0];
   }
 
   private static void storeException(String id, Exception e) {
@@ -98,14 +105,21 @@ public class ExtractValueService extends HttpServlet {
     int current = 1;
     int nbElement=0;
     double somme=0d;
-    while (current<=object.size()) {
+    double lastValue = 0d;
+    while (current<=indexes.length) {
+      if (object.get(indexes[current-1]) == null) {
+        current ++;
+        continue;
+      }
       String val = object.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
         somme+=new Double(val);
+        lastValue = new Double(val);
         nbElement++;
       }
       current++;
     }
+
     score=somme/nbElement;
     if (nbElement==0) {
       return 0d;
@@ -113,7 +127,7 @@ public class ExtractValueService extends HttpServlet {
     if (nbElement>4) {
       score=score+object.get("3ans").getAsDouble();
     } else {
-      score=score+object.get(indexes[nbElement-1]).getAsDouble();
+      score=score+lastValue;
     }
     return Math.round(score * 100.0) / 100.0;
 
