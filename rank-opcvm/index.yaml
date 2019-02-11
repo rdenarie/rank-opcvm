@@ -1,0 +1,7 @@
+indexes:
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: scoreFond
+      direction: desc
