@@ -42,6 +42,8 @@ public class Utils {
 
     public static final String CATEGORY_PERSO_PROPERTY = "categPerso";
     public static final String DURATION_IMPORTATION_ELEMENT_ENTITY = "DurationEntity";
+    public static final String RANK_IN_CATEGORY_PROPERTY = "rankInCategory";
+    public static final String NUMBER_FUNDS_IN_CATEGORY_PROPERTY = "numberFundsInCategory";
 
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());

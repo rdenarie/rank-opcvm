@@ -3,8 +3,11 @@ package com.rdenarie;
 
 import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.*;
+import com.google.cloud.datastore.Datastore;
+import com.google.cloud.datastore.DatastoreOptions;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
+
 
 
 import javax.servlet.annotation.WebServlet;
@@ -12,9 +15,7 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.Calendar;
-import java.util.Date;
-import java.util.List;
+import java.util.*;
 import java.util.logging.Logger;
 
 
@@ -25,6 +26,7 @@ import java.util.logging.Logger;
 @WebServlet(name = "GetDataServlet", value = "/getDataServlet")
 public class GetDataServlet extends HttpServlet {
     private static final Logger log = Logger.getLogger(GetDataServlet.class.getName());
+    private static final int LIMIT = 50;
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -49,11 +51,18 @@ public class GetDataServlet extends HttpServlet {
             JsonObject jsonData = new JsonObject();
             addColumnNames(jsonData);
             JsonArray arrayValues = new JsonArray();
+
+            String cursorString=request.getParameter("startCursorString");
+
+            int limit=request.getParameter("displayAll") != null ? (request.getParameter("displayAll").equals("true") ? -1 : LIMIT) : LIMIT;
+
+            QueryResult queryResult;
             if (category==null) {
-                datas = getDataByDate(currentDate);
+                queryResult = getDataByDate(currentDate,cursorString,limit);
             } else {
-                datas = getDataByDateAndCategory(currentDate,category);
+                queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit);
             }
+            datas=queryResult.results;
             for (Entity data : datas) {
                 JsonObject json = createJsonObjectValueRow(data);
                 if (json!=null) {
@@ -93,7 +102,7 @@ public class GetDataServlet extends HttpServlet {
 
 
             result.add("data", jsonData);
-
+            result.addProperty("cursorString",queryResult.cursor);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(result.toString());
@@ -146,11 +155,42 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    private List<Entity> getDataByDateAndCategory(Entity lastDate, String category) {
+    private QueryResult getDataByDateAndCategory(Entity lastDate, String category, String startCursorString, int limit) {
+        FilterPredicate filter = new Query.FilterPredicate(Utils.CATEGORY_PERSO_PROPERTY, Query.FilterOperator.EQUAL, category);
+
         log.fine("getDataByDateAndCategory : "+category);
+        return doQuery(lastDate, filter, startCursorString, limit);
+    }
+
+    private QueryResult doQuery(Entity lastDate, FilterPredicate filter, String startCursorString, int limit) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).setFilter(new Query.FilterPredicate(Utils.CATEGORY_PERSO_PROPERTY, Query.FilterOperator.EQUAL, category));
-        return datastore.prepare(q).asList(FetchOptions.Builder.withChunkSize(10));
+        FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
+        if (limit>-1) {
+            fetchOptions = FetchOptions.Builder.withLimit(limit);
+        }
+
+        if (startCursorString != null && !startCursorString.equals("")) {
+            fetchOptions.startCursor(Cursor.fromWebSafeString(startCursorString)); // Where we left off
+        }
+
+        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
+        if (filter!=null) {
+            q=q.setFilter(filter);
+        }
+
+        PreparedQuery preparedQuery = datastore.prepare(q);
+        QueryResultIterator<Entity> resultsIterator = preparedQuery.asQueryResultIterator(fetchOptions);
+        List<Entity> resultList = new ArrayList<>();
+        while (resultsIterator.hasNext()) {
+            resultList.add(resultsIterator.next());
+        }
+        Cursor cursor = resultsIterator.getCursor();
+        String cursorString = null;
+        if (cursor != null && limit>-1 && resultList.size() == LIMIT) {         // Are we paging? Save Cursor
+            startCursorString = cursor.toWebSafeString();               // Cursors are WebSafe
+        }
+
+        return new QueryResult(resultList,startCursorString);
     }
 
     private JsonObject createJsonObjectValueRow(Entity data) {
@@ -158,53 +198,74 @@ public class GetDataServlet extends HttpServlet {
         {"c":[{v: 'a'},{"v":3,"f":null}]}
         */
         JsonArray values = new JsonArray();
-        values.add(createJsonObjectValueString(data.getProperty(Utils.NAME_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.SCORE_FOND_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.MSRATING_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.ENTREE_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.SORTIE_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.PRICE_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.CURRENCY_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.PRICE_EUR_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.TICKET_IN_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.TICKET_RENEW_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.ID_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.COURANT_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(data.getProperty(Utils.ACTIF_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.GERANT_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.CATEGORY_GEN_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.CATEGORY_MS_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(data.getProperty(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
-        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
+        Map<String, Object> properties=data.getProperties();
+
+        values.add(createJsonObjectValueString(properties.get(Utils.NAME_PROPERTY).toString()));
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_FOND_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.MSRATING_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.ENTREE_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.SORTIE_PROPERTY).toString()));
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.CURRENCY_PROPERTY).toString()));
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
+        //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_GEN_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_MS_PROPERTY).toString()));
+        //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
+
+
+//        if (properties.get(Utils.RANK_IN_CATEGORY_PROPERTY)!=null){
+//            values.add(createJsonObjectValueString(properties.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString()));
+//            values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString()));
+//        } else {
+//            computeRank(data);
+//        }
+
+
+//        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
             JsonObject result = new JsonObject();
             result.add("c", values);
             return result;
-        } else {
-            return null;
-        }
+//        } else {
+//            return null;
+//        }
+
+    }
+
+    private void computeRank(Entity data) {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(data.getParent());
+        FilterPredicate filter = new Query.FilterPredicate(Utils.CATEGORY_MS_PROPERTY, Query.FilterOperator.EQUAL, data.getProperty(Utils.CATEGORY_MS_PROPERTY));
+        q.setFilter(filter);
+
 
     }
 
     private boolean isTooExpensive(String ticketIn) {
-        if (ticketIn.contains(" ")) {
-            String[] arrayIn = ticketIn.split(" ");
-            if (!arrayIn[0].contains(".")) {
-                try {
-                    int value = new Integer(arrayIn[0]);
-                    return value > 10000;
-                } catch (NumberFormatException NFE) {
-                    return false;
-                }
-            } else {
-                try {
-                    Double value = new Double(arrayIn[0]);
-                    return value > 10000;
-                } catch (NumberFormatException NFE) {
-                    return false;
-                }
-            }
-        }
+//        if (ticketIn.contains(" ")) {
+//            String[] arrayIn = ticketIn.split(" ");
+//            if (!arrayIn[0].contains(".")) {
+//                try {
+//                    int value = new Integer(arrayIn[0]);
+//                    return value > 10000;
+//                } catch (NumberFormatException NFE) {
+//                    return false;
+//                }
+//            } else {
+//                try {
+//                    Double value = new Double(arrayIn[0]);
+//                    return value > 10000;
+//                } catch (NumberFormatException NFE) {
+//                    return false;
+//                }
+//            }
+//        }
         return false;
 
     }
@@ -237,9 +298,9 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"F-Courant","","string"));
         columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en m)","","number"));
         columns.add(createJsonObjectColumnName(Utils.GERANT_PROPERTY,"Gérant","","string"));
-        columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
+//        columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_MS_PROPERTY,"Catégorie MS","","string"));
-        columns.add(createJsonObjectColumnName(Utils.CATEGORY_PERSO_PROPERTY,"Catégorie Claude","","string"));
+//        columns.add(createJsonObjectColumnName(Utils.CATEGORY_PERSO_PROPERTY,"Catégorie Claude","","string"));
         result.add("cols",columns);
     }
 
@@ -275,10 +336,21 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    public List<Entity> getDataByDate(Entity date) {
-        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(date.getKey());
-        return datastore.prepare(q).asList(FetchOptions.Builder.withChunkSize(10));
+    public QueryResult getDataByDate(Entity date, String startCursorString,int limit) {
+        return doQuery(date,null, startCursorString, limit);
+    }
+
+
+    public class QueryResult {
+        String cursor;
+        List<Entity> results;
+
+        public QueryResult(List<Entity> results, String cursor) {
+            this.cursor=cursor;
+            this.results=results;
+        }
+
+
 
     }
 }

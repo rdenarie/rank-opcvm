@@ -112,8 +112,11 @@ public class StoreService extends HttpServlet {
 
 
 
-
+            String dataString="";
             for (Map.Entry entry : jsonObject.entrySet()) {
+
+
+
                 if (!(entry.getValue() instanceof JsonObject)) {
                     JsonPrimitive value = (JsonPrimitive) entry.getValue();
                     if (value.isString()) {
@@ -172,14 +175,14 @@ public class StoreService extends HttpServlet {
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-                //todo change default queue
-                Queue queue = QueueFactory.getQueue("slow-queue");
+//                Queue queue = QueueFactory.getQueue("slow-queue");
+                Queue queue = QueueFactory.getDefaultQueue();
                 queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("categoryMsId", categoryMsId).param("categoryId", categoryId));
-                log.info("Queue msCategory "+currentMs+"/"+msCategories.size()+"");
+                log.info("Queue msCategory "+categoryMsId+" "+currentMs+"/"+msCategories.size()+"");
                 currentMs++;
             }
 
-            log.info("Queue personnal category "+current+"/"+personalCategories.size()+"");
+            log.info("Queue personnal category "+categoryId+" "+current+"/"+personalCategories.size()+"");
             current++;
         }
 
@@ -194,17 +197,22 @@ public class StoreService extends HttpServlet {
         for (JsonElement personalCategory : personalCategories) {
             if (personalCategory.getAsJsonObject().get("categoryName").getAsString().equals(categoryId)) {
                 JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
+                log.info("msCategories : "+msCategories);
                 for (JsonElement msCategory : msCategories) {
-                    List<String> fonds = CategoriesService.getIdFondsByMsCategory(msCategory, personalCategory);
-                    int current=1;
-                    for (String fond : fonds) {
-                        log.info("Queue fond "+current+"/"+fonds.size()+"");
-                        //todo change default queue
-                        Queue queue = QueueFactory.getQueue("slow-queue");
-                        queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
-                        current++;
+                    log.info("msCategory : "+msCategory);
+                    log.info("personalCategory : "+personalCategory);
+                    if (msCategory.getAsJsonObject().get("categoryName").getAsString().equals(categoryMsId)) {
+                        List<String> fonds = CategoriesService.getIdFondsByMsCategory(msCategory, personalCategory);
+                        int current = 1;
+                        for (String fond : fonds) {
+                            log.info("Queue fond " + current + "/" + fonds.size() + " for categoryMsId="+categoryMsId+", categoryId="+categoryId);
+//                            Queue queue = QueueFactory.getQueue("slow-queue");
+                            Queue queue = QueueFactory.getDefaultQueue();
+                            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
+                            current++;
+                        }
+                        return;
                     }
-                    return;
 
                 }
             }
