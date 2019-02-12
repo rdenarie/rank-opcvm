@@ -3,5 +3,6 @@ indexes:
 - kind: DataEntry
   ancestor: yes
   properties:
+    - name: categPerso
     - name: scoreFond
       direction: desc
