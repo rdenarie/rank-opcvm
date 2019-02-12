@@ -231,13 +231,7 @@
                     } else {
                         $.merge($(window).data('jsonData').data.rows, jsonData.data.rows);
                     }
-                    var options = {
-                        sortColumn: 1,
-                        sortAscending: false,
-                        showRowNumber: true,
-                        width: '100%',
-                        height:'100%'
-                    };
+
 
 
                     //var table = new google.visualization.Table(document.getElementById('dataTable'));
@@ -257,7 +251,7 @@
                           'chartType': 'Table',
                           'containerId': 'dataTable',
                           'options': {
-                            'sortColumn': 1,
+                            'sortColumn': 3,
                             'sortAscending': false,
                             'showRowNumber': true,
                             'width': '100%',

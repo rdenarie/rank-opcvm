@@ -197,9 +197,17 @@ public class GetDataServlet extends HttpServlet {
 /*
         {"c":[{v: 'a'},{"v":3,"f":null}]}
         */
+        if (data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null){
+            computeRank(data);
+        }
+
+
         JsonArray values = new JsonArray();
 
         Map<String, Object> properties=data.getProperties();
+
+        values.add(createJsonObjectValueString(properties.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString()));
 
         values.add(createJsonObjectValueString(properties.get(Utils.NAME_PROPERTY).toString()));
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_FOND_PROPERTY).toString()));
@@ -220,12 +228,7 @@ public class GetDataServlet extends HttpServlet {
         //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
 
-//        if (properties.get(Utils.RANK_IN_CATEGORY_PROPERTY)!=null){
-//            values.add(createJsonObjectValueString(properties.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString()));
-//            values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString()));
-//        } else {
-//            computeRank(data);
-//        }
+
 
 
 //        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
@@ -240,33 +243,43 @@ public class GetDataServlet extends HttpServlet {
 
     private void computeRank(Entity data) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(data.getParent());
-        FilterPredicate filter = new Query.FilterPredicate(Utils.CATEGORY_MS_PROPERTY, Query.FilterOperator.EQUAL, data.getProperty(Utils.CATEGORY_MS_PROPERTY));
-        q.setFilter(filter);
 
 
-    }
+        //1) récupération de tous les fond de la meme catégorie a la meme date
+        FilterPredicate filterCategory = new Query.FilterPredicate(Utils.CATEGORY_MS_PROPERTY, Query.FilterOperator.EQUAL, data.getProperty(Utils.CATEGORY_MS_PROPERTY));
+        Query q = new Query(Utils.DATA_ENTRY_ENTITY)
+                .setFilter(filterCategory)
+                .setAncestor(data.getParent())
+                .addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
 
-    private boolean isTooExpensive(String ticketIn) {
-//        if (ticketIn.contains(" ")) {
-//            String[] arrayIn = ticketIn.split(" ");
-//            if (!arrayIn[0].contains(".")) {
-//                try {
-//                    int value = new Integer(arrayIn[0]);
-//                    return value > 10000;
-//                } catch (NumberFormatException NFE) {
-//                    return false;
-//                }
-//            } else {
-//                try {
-//                    Double value = new Double(arrayIn[0]);
-//                    return value > 10000;
-//                } catch (NumberFormatException NFE) {
-//                    return false;
-//                }
-//            }
-//        }
-        return false;
+        //q.addProjection(new PropertyProjection(Utils.SCORE_FOND_PROPERTY, String.class));
+        //q.addProjection(new PropertyProjection(Utils.CATEGORY_MS_PROPERTY, String.class));
+        q.addProjection(new PropertyProjection(Utils.ID_PROPERTY, String.class));
+
+        PreparedQuery preparedQuery = datastore.prepare(q);
+        List<Entity> entityOfSameCategory=preparedQuery.asList(FetchOptions.Builder.withDefaults());
+
+
+        FilterPredicate filterBetterScore = new Query.FilterPredicate(Utils.SCORE_FOND_PROPERTY, FilterOperator.GREATER_THAN, data.getProperty(Utils.SCORE_FOND_PROPERTY));
+        CompositeFilter fondOfSameCategoryWithBetterScore =
+                CompositeFilterOperator.and(filterBetterScore, filterCategory);
+
+        Query qBetterScore = new Query(Utils.DATA_ENTRY_ENTITY)
+                .setFilter(fondOfSameCategoryWithBetterScore)
+                .setAncestor(data.getParent())
+                .addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
+        PreparedQuery preparedQueryBetterThan = datastore.prepare(qBetterScore);
+        List<Entity> entityOfSameCategoryWithBetterScore=preparedQueryBetterThan.asList(FetchOptions.Builder.withDefaults());
+
+        int position=entityOfSameCategoryWithBetterScore.size()+1;
+        int nbElementsInCategory=entityOfSameCategory.size();
+
+        data.setProperty(Utils.RANK_IN_CATEGORY_PROPERTY,position);
+        data.setProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY,nbElementsInCategory);
+
+        datastore.put(data);
+        log.info("Fond "+data.getProperty(Utils.ID_PROPERTY)+" : "+data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)+"/"+data.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY));
+
 
     }
 
@@ -284,6 +297,8 @@ public class GetDataServlet extends HttpServlet {
 
     private void addColumnNames(JsonObject result) {
         JsonArray columns=new JsonArray();
+        columns.add(createJsonObjectColumnName(Utils.RANK_IN_CATEGORY_PROPERTY,"Position","","string"));
+        columns.add(createJsonObjectColumnName(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY,"Sur","","string"));
         columns.add(createJsonObjectColumnName(Utils.NAME_PROPERTY,"Nom","","string"));
         columns.add(createJsonObjectColumnName(Utils.SCORE_FOND_PROPERTY,"Score","","number"));
         columns.add(createJsonObjectColumnName(Utils.MSRATING_PROPERTY,"Etoiles MS","","number"));

@@ -6,3 +6,24 @@ indexes:
     - name: categPerso
     - name: scoreFond
       direction: desc
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: scoreFond
+      direction: desc
+
+- kind: DataEntry
+  properties:
+    - name: categMS
+    - name: scoreFond
+      direction: desc
+
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: categMS
+    - name: scoreFond
+      direction: desc
+    - name: id

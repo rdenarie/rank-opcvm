@@ -1,6 +1,9 @@
 - Ajouter la position dans la categorie et le nombre de fonds dans la categorie. On peut aussi ajouter la position lors
 du dernier import pour observer l'évolution. L'idée est de calculer cela à l'affichage puis de le stocker, ou après l'import.
+attention a gérer le cas si on n'a pas de valeur de score le mois précédent. Dans ce cas, on le calcule
 
+
+- ajouter un loading
 - mettre un lien sur l'isin
 - afficher la page détaillée d'un fond (avec des courbes de position ndans la catégorie)
 - ajouter le classement des catégories
