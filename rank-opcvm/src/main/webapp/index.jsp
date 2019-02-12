@@ -169,7 +169,7 @@
                                 dataType: "json",
                                 success : function(jsonData)
                                 {
-                                    readAndDraw(jsonData);
+                                    readAndDraw(jsonData,true);
                                     $(window).data('ajaxready', true);
                                 },
                                 error:function (xhr, ajaxOptions, thrownError){
@@ -183,44 +183,47 @@
                 };
 
 
-                function readAndDraw(jsonData) {
+                function readAndDraw(jsonData, reload) {
                     var date = jsonData.date;
                     var startCursorString=jsonData.cursorString;
                     if (startCursorString!=null) {
                         $("#cursor").text(startCursorString);
                     }
-                    $("#title h1").html("Donn&eacutees du "+date);
 
-                    var previousDate=jsonData.previousDate;
-                    if (previousDate!=null) {
-                        $("#previousButton").append(previousDate);
-                        $("#previousDate").show();
-                        $("#previousButton").click(function() {
-                            var previousDateUrl=dateUrl;
-                            if (dateUrl.indexOf("?")==-1) {
-                                previousDateUrl+="?date="+jsonData.previousTime;
-                            } else {
-                                previousDateUrl+="&date="+jsonData.previousTime;
-                            }
-                            window.location = previousDateUrl;
-                        });
-                    }
+                    if (!reload) {
+                        $("#title h1").html("Donn&eacutees du "+date);
+
+                        var previousDate=jsonData.previousDate;
+                        if (previousDate!=null) {
+                            $("#previousButton").append(previousDate);
+                            $("#previousDate").show();
+                            $("#previousButton").click(function() {
+                                var previousDateUrl=dateUrl;
+                                if (dateUrl.indexOf("?")==-1) {
+                                    previousDateUrl+="?date="+jsonData.previousTime;
+                                } else {
+                                    previousDateUrl+="&date="+jsonData.previousTime;
+                                }
+                                window.location = previousDateUrl;
+                            });
+                        }
 
 
-                    var nextDate=jsonData.nextDate;
-                    if (nextDate!=null) {
-                        $("#nextButton").append(nextDate);
-                        $("#nextDate").show();
-                        $("#nextButton").click(function() {
-                            var nextDateUrl=dateUrl;
-                            if (dateUrl.indexOf("?")==-1) {
-                                nextDateUrl+="?date="+jsonData.nextTime;
-                            } else {
-                                nextDateUrl+="&date="+jsonData.nextTime;
-                            }
-                            window.location = nextDateUrl;
-                        });
+                        var nextDate=jsonData.nextDate;
+                        if (nextDate!=null) {
+                            $("#nextButton").append(nextDate);
+                            $("#nextDate").show();
+                            $("#nextButton").click(function() {
+                                var nextDateUrl=dateUrl;
+                                if (dateUrl.indexOf("?")==-1) {
+                                    nextDateUrl+="?date="+jsonData.nextTime;
+                                } else {
+                                    nextDateUrl+="&date="+jsonData.nextTime;
+                                }
+                                window.location = nextDateUrl;
+                            });
 
+                        }
                     }
                     if (!$(window).data('data')) {
                         $(window).data('jsonData', jsonData);
@@ -318,7 +321,7 @@
                         dataType: "json",
                         success : function(jsonData)
                         {
-                            readAndDraw(jsonData);
+                            readAndDraw(jsonData,false);
                         },
                         error:function (xhr, ajaxOptions, thrownError){
                              if(xhr.status==404) {
