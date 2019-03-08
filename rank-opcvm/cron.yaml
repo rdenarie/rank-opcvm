@@ -1,0 +1,4 @@
+cron:
+  - description: "Import data each month"
+    url: /storeService
+    schedule: 9 of month 01:00

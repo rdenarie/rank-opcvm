@@ -175,8 +175,8 @@ public class StoreService extends HttpServlet {
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-//                Queue queue = QueueFactory.getQueue("slow-queue");
-                Queue queue = QueueFactory.getDefaultQueue();
+                Queue queue = QueueFactory.getQueue("slow-queue");
+//                Queue queue = QueueFactory.getDefaultQueue();
                 queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("categoryMsId", categoryMsId).param("categoryId", categoryId));
                 log.info("Queue msCategory "+categoryMsId+" "+currentMs+"/"+msCategories.size()+"");
                 currentMs++;
@@ -206,8 +206,8 @@ public class StoreService extends HttpServlet {
                         int current = 1;
                         for (String fond : fonds) {
                             log.info("Queue fond " + current + "/" + fonds.size() + " for categoryMsId="+categoryMsId+", categoryId="+categoryId);
-//                            Queue queue = QueueFactory.getQueue("slow-queue");
-                            Queue queue = QueueFactory.getDefaultQueue();
+                            Queue queue = QueueFactory.getQueue("slow-queue");
+//                            Queue queue = QueueFactory.getDefaultQueue();
                             queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
                             current++;
                         }
