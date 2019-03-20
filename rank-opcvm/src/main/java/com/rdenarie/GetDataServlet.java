@@ -241,7 +241,7 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    private void computeRank(Entity data) {
+    public static void computeRank(Entity data) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
 
@@ -331,7 +331,7 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    public Entity getLastDate() {
+    public static Entity getLastDate() {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         Query q = new Query(Utils.TIME_ELEMENT_ENTITY).addSort("date", Query.SortDirection.DESCENDING);
 

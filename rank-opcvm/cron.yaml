@@ -2,3 +2,6 @@ cron:
   - description: "Import data each month"
     url: /storeService
     schedule: 1 of month 01:00
+  - description: "Compute rank after import"
+    url: /computeRankService
+    schedule: 1 of month 05:00
