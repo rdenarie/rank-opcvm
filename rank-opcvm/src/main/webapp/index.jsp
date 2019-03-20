@@ -58,6 +58,7 @@
 
             .displayAll {
                 float:right;
+                display:none;
             }
         </style>
         <!--
@@ -273,8 +274,16 @@
                 }
 
                 function drawTable() {
+                    var tempUrl=url;
+                    if (tempUrl.indexOf("?")>-1) {
+                        tempUrl+="&";
+                    } else {
+                        tempUrl+="?";
+                    }
+                    tempUrl+="displayAll=true";
+
                     var jsonData = $.ajax({
-                        url: url,
+                        url: tempUrl,
                         dataType: "json",
                         success : function(jsonData)
                         {
@@ -293,8 +302,8 @@
                     $(window).data('ajaxready', false);
                     // on effectue nos traitements
                     var cursor=$("#cursor").text();
+                    var nextUrl=url;
                     if (cursor!="") {
-                        var nextUrl=url;
                         if (nextUrl.indexOf("?")>-1) {
                             nextUrl+="&";
                         } else {
@@ -324,6 +333,7 @@
                          }
                     });
                 });
+
 
          </script>
 

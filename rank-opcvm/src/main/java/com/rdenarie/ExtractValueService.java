@@ -311,7 +311,9 @@ public class ExtractValueService extends HttpServlet {
 
 
     Element faceQuotation = doc.selectFirst("div.c-faceplate__quotation");
-    String actif = faceQuotation.select("li.c-list-info__item").get(2).text().split("/")[1].replace(" ","");
+    log.info(faceQuotation.toString());
+
+    String actif = faceQuotation.select("li.c-list-info__item").get(1).text().split("/")[1].replace(" ","");
     result.addProperty(Utils.ACTIF_PROPERTY,new Double(actif));
 
 
