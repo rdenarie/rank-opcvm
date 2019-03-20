@@ -130,7 +130,7 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    private Entity getPreviousDate(Entity currentDate) {
+    public static Entity getPreviousDate(Entity currentDate) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         Filter dateFilter = new FilterPredicate("date", FilterOperator.LESS_THAN, currentDate.getProperty("date"));
 
@@ -142,7 +142,7 @@ public class GetDataServlet extends HttpServlet {
         else return null;
 
     }
-    private Entity getNextDate(Entity currentDate) {
+    public static Entity getNextDate(Entity currentDate) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         Filter dateFilter = new FilterPredicate("date", FilterOperator.GREATER_THAN, currentDate.getProperty("date"));
 
