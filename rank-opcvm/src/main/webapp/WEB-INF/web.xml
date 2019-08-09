@@ -14,5 +14,12 @@
     <servlet-name>getDataServlet</servlet-name>
     <url-pattern>/getData</url-pattern>
   </servlet-mapping>
-
+  <servlet>
+    <servlet-name>getFundDataServlet</servlet-name>
+    <servlet-class>com.rdenarie.GetFundDataServlet</servlet-class>
+  </servlet>
+  <servlet-mapping>
+    <servlet-name>getFundDataServlet</servlet-name>
+    <url-pattern>/getFundData</url-pattern>
+  </servlet-mapping>
 </web-app>

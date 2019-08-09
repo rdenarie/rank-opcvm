@@ -193,7 +193,7 @@ public class GetDataServlet extends HttpServlet {
         return new QueryResult(resultList,startCursorString);
     }
 
-    private JsonObject createJsonObjectValueRow(Entity data) {
+    public static JsonObject createJsonObjectValueRow(Entity data) {
 /*
         {"c":[{v: 'a'},{"v":3,"f":null}]}
         */
@@ -219,7 +219,7 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
+        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
         values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
@@ -283,12 +283,12 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    private JsonObject createJsonObjectValueString(String value) {
+    public static JsonObject createJsonObjectValueString(String value) {
         JsonObject result = new JsonObject();
         result.addProperty("v",value);
         return result;
     }
-    private JsonObject createJsonObjectValueAsFloat(String value) {
+    public static JsonObject createJsonObjectValueAsFloat(String value) {
 
         JsonObject result = new JsonObject();
         result.addProperty("v",new Double(value));

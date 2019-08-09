@@ -228,7 +228,8 @@
                     }
                     if (!$(window).data('data')) {
                         $(window).data('jsonData', jsonData);
-                        $(window).data('data', new google.visualization.DataTable($(window).data('jsonData').data,0.6));
+                        var dataTable = new google.visualization.DataTable($(window).data('jsonData').data,0.6);
+                        $(window).data('data', dataTable);
                     } else {
                         $.merge($(window).data('jsonData').data.rows, jsonData.data.rows);
                     }
@@ -256,12 +257,14 @@
                             'sortAscending': false,
                             'showRowNumber': true,
                             'width': '100%',
+                            'allowHtml':'true'
                           }
                         });
+
                         $(window).data('tableChart',tableChart);
 
                         $(window).data('dashboard').bind(categorySelector, tableChart);
-                        $(window).data('dashboard').draw($(window).data('data'));
+                        $(window).data('dashboard').draw($(window).data('data'),{allowHTML:true});
                     } else {
 
                         var scrollTop=$(window).scrollTop();
