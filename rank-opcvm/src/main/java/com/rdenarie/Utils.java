@@ -97,4 +97,52 @@ public class Utils {
 
         return null;
     }
+
+    public static String getMSResponse(String urlString) {
+
+        //wait timerPause ms to prevent to hit GAE quota on url fetch (22Mo/min)
+        try {
+            Thread.sleep(timerPause);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
+        }
+
+        log.finest("Call url "+urlString);
+        Long startTime = Calendar.getInstance().getTimeInMillis();
+        try {
+            URL url = new URL(urlString);
+            HttpURLConnection conn = (HttpURLConnection) url.openConnection();
+            conn.setDoOutput(true);
+            conn.setRequestMethod("GET");
+//            String myCookie = "B20_TRADING_ENABLED=1";
+//            conn.setRequestProperty("Cookie", myCookie);
+
+
+            int respCode = conn.getResponseCode(); // New items get NOT_FOUND on PUT
+            if (respCode == HttpURLConnection.HTTP_OK || respCode == HttpURLConnection.HTTP_NOT_FOUND) {
+                StringBuffer response = new StringBuffer();
+                String line;
+
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+
+                while ((line = reader.readLine()) != null) {
+                    response.append(line);
+                }
+                reader.close();
+
+                return response.toString();
+            } else {
+                return null;
+            }
+        } catch (IOException IO) {
+            log.info("Unable to get url content "+urlString+"," +IO.getMessage());
+            IO.printStackTrace();
+        } finally {
+            Long endTime = Calendar.getInstance().getTimeInMillis();
+            Long duration=endTime - startTime;
+            log.finest("Get url "+urlString+" takes "+duration+" ms");
+        }
+
+        return null;
+    }
 }

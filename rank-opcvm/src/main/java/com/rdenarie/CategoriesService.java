@@ -56,7 +56,7 @@ public class CategoriesService  extends HttpServlet {
                 //if (currentMsCategory>2) break;
                 log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
                 String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
-                result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
+                result.addAll(getIdFondsByCategorySearchCodeFromMS(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
                 currentMsCategory++;
             }
 
@@ -72,13 +72,13 @@ public class CategoriesService  extends HttpServlet {
 
         log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString());
         String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
-        result.addAll(getIdFondsByCategorySearchCode(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
+        result.addAll(getIdFondsByCategorySearchCodeFromMS(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
 
         return result;
 
     }
 
-    private static List<String> getIdFondsByCategorySearchCode(String categorySearchCode,String personalCategoryName) {
+    private static List<String> getIdFondsByCategorySearchCodeFromBourso(String categorySearchCode, String personalCategoryName) {
         List<String> result=new ArrayList<>();
         String url = "/bourse/opcvm/recherche/?fundSearch%5Bclasse%5D=all&fundSearch%5Bcritgen%5D=morningstar&fundSearch%5Bsouscritgen%5D="+categorySearchCode;
         Element nextPage=null;
@@ -108,6 +108,73 @@ public class CategoriesService  extends HttpServlet {
             }
         } while (nextPage!=null);
 
+        return result;
+
+
+    }
+
+    private static List<String> getIdFondsByCategorySearchCodeFromMS(String categorySearchCode, String personalCategoryName) {
+        List<String> result=new ArrayList<>();
+        int pageSize=200;
+
+        String url = "http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page=1&pageSize="+pageSize+"&sortOrder=LegalName%20asc&outputType=json&version=1&languageId=fr-FR&currencyId=EUR&universeIds=FOFRA%24%24ALL&securityDataPoints=SecId%7CName%7CPriceCurrency%7CTenforeId%7CLegalName%7CClosePrice%7CYield_M12%7COngoingCharge%7CCategoryName%7CAnalystRatingScale%7CStarRatingM255%7CSustainabilityRank%7CGBRReturnD1%7CGBRReturnW1%7CGBRReturnM1%7CGBRReturnM3%7CGBRReturnM6%7CGBRReturnM0%7CGBRReturnM12%7CGBRReturnM36%7CGBRReturnM60%7CGBRReturnM120%7CMaxFrontEndLoad%7COngoingCostActual%7CPerformanceFeeActual%7CTransactionFeeActual%7CMaximumExitCostAcquired%7CFeeLevel%7CManagerTenure%7CMaxDeferredLoad%7CInitialPurchase%7CFundTNAV%7CEquityStyleBox%7CBondStyleBox%7CAverageMarketCapital%7CAverageCreditQualityCode%7CEffectiveDuration%7CMorningstarRiskM255%7CAlphaM36%7CBetaM36%7CR2M36%7CStandardDeviationM36%7CSharpeM36%7CInvestorTypeRetail%7CInvestorTypeProfessional%7CInvestorTypeEligibleCounterparty%7CExpertiseBasic%7CExpertiseAdvanced%7CExpertiseInformed%7CReturnProfilePreservation%7CReturnProfileGrowth%7CReturnProfileIncome%7CReturnProfileHedging%7CReturnProfileOther%7CTrackRecordExtension&filters=CategoryId%3AIN%3A"+categorySearchCode+"&term=&subUniverseId=";
+
+        Element nextPage=null;
+        String msResponse=Utils.getMSResponse(url);
+        if (msResponse!=null) {
+            JsonObject jsonObject = (new JsonParser()).parse(msResponse).getAsJsonObject();
+            int total = jsonObject.get("total").getAsInt();
+            if (total>pageSize) {
+                url="http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page=1&pageSize="+total+"&sortOrder=LegalName%20asc&outputType=json&version=1&languageId=fr-FR&currencyId=EUR&universeIds=FOFRA%24%24ALL&securityDataPoints=SecId%7CName%7CPriceCurrency%7CTenforeId%7CLegalName%7CClosePrice%7CYield_M12%7COngoingCharge%7CCategoryName%7CAnalystRatingScale%7CStarRatingM255%7CSustainabilityRank%7CGBRReturnD1%7CGBRReturnW1%7CGBRReturnM1%7CGBRReturnM3%7CGBRReturnM6%7CGBRReturnM0%7CGBRReturnM12%7CGBRReturnM36%7CGBRReturnM60%7CGBRReturnM120%7CMaxFrontEndLoad%7COngoingCostActual%7CPerformanceFeeActual%7CTransactionFeeActual%7CMaximumExitCostAcquired%7CFeeLevel%7CManagerTenure%7CMaxDeferredLoad%7CInitialPurchase%7CFundTNAV%7CEquityStyleBox%7CBondStyleBox%7CAverageMarketCapital%7CAverageCreditQualityCode%7CEffectiveDuration%7CMorningstarRiskM255%7CAlphaM36%7CBetaM36%7CR2M36%7CStandardDeviationM36%7CSharpeM36%7CInvestorTypeRetail%7CInvestorTypeProfessional%7CInvestorTypeEligibleCounterparty%7CExpertiseBasic%7CExpertiseAdvanced%7CExpertiseInformed%7CReturnProfilePreservation%7CReturnProfileGrowth%7CReturnProfileIncome%7CReturnProfileHedging%7CReturnProfileOther%7CTrackRecordExtension&filters=CategoryId%3AIN%3A"+categorySearchCode+"&term=&subUniverseId=";
+            }
+            msResponse=Utils.getMSResponse(url);
+            if (msResponse!=null) {
+                jsonObject = (new JsonParser()).parse(msResponse).getAsJsonObject();
+            }
+            JsonArray rows = jsonObject.getAsJsonArray("rows");
+            for (JsonElement element : rows) {
+                log.fine("Element="+element.toString());
+                JsonElement property = element.getAsJsonObject().get("TenforeId");
+                if (property!=null) {
+                    String id = element.getAsJsonObject().get("TenforeId").getAsString();
+                    log.fine("TenforId = " + id);
+                    id = id.substring(id.lastIndexOf(".") + 1);
+                    log.fine("ISIN = " + id);
+                    result.add(id+"#"+personalCategoryName);
+                }
+            }
+        }
+
+//        do {
+
+
+//            String boursoResponse = getCategoriesBoursoResponse(url);
+//
+//            if (boursoResponse != null) {
+//                Document doc = Jsoup.parse(boursoResponse);
+//                Elements links = doc.selectFirst("div.c-tabs__content.is-active").select("a[href^=/bourse/opcvm/cours/]");
+//                //System.out.println(doc.selectFirst("div.c-tabs__content.is-active").html());
+//                for (Element link : links) {
+//                    String[] splitted = link.attr("href").split("/");
+//                    result.add(splitted[splitted.length - 1]+"#"+personalCategoryName);
+//                }
+//                Element pageNumberElement = doc.selectFirst("span.c-pagination__content.is-active");
+//                if (pageNumberElement==null) {
+//                    nextPage=null;
+//                } else {
+//                    int pageNumber = new Integer(pageNumberElement.text()).intValue();
+//                    pageNumber++;
+//                    nextPage = doc.selectFirst("a[href^=/bourse/opcvm/recherche/page-" + pageNumber + "]");
+//                    if (nextPage != null) {
+//                        System.out.println("Goto Page " + pageNumber);
+//                        url = nextPage.attr("href");
+//                    }
+//                }
+//            }
+//        } while (nextPage!=null);
+
+
+        log.fine("Category : "+categorySearchCode+" : found "+result.size()+" funds to store.");
         return result;
 
 

@@ -12,6 +12,7 @@ import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.QueueFactory;
 import com.google.appengine.api.taskqueue.RetryOptions;
 import com.google.appengine.api.taskqueue.TaskOptions;
+import com.google.appengine.api.utils.SystemProperty;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -47,13 +48,13 @@ public class ComputeRankService extends HttpServlet {
 
     private void computeRank(String id) {
 
-
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
         Query.Filter filter = new Query.FilterPredicate("id", Query.FilterOperator.EQUAL,id);
         Query entityQuery = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(GetDataServlet.getLastDate().getKey()).setFilter(filter);
+
         PreparedQuery preparedQuery = datastore.prepare(entityQuery);
-        Entity data = preparedQuery.asSingleEntity();
+        Entity data = preparedQuery.asList(FetchOptions.Builder.withDefaults()).get(0);
 
         if (data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null){
             log.info("Compute Rank for id "+id);
@@ -78,9 +79,13 @@ public class ComputeRankService extends HttpServlet {
         QueryResultIterator<Entity> resultsIterator = preparedQuery.asQueryResultIterator(fetchOptions);
         List<Entity> resultList = new ArrayList<>();
         while (resultsIterator.hasNext()) {
+            Queue queue;
+            if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
+                queue = QueueFactory.getQueue("slow-queue");
+            } else {
+                queue = QueueFactory.getDefaultQueue();
 
-            Queue queue = QueueFactory.getQueue("slow-queue");
-//        Queue queue = QueueFactory.getDefaultQueue();
+            }
             queue.addAsync(TaskOptions.Builder.withUrl("/computeRankService").method(TaskOptions.Method.GET).param("id",resultsIterator.next().getProperty("id").toString() ).retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
 
         }

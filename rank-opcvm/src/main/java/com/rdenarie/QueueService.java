@@ -4,6 +4,7 @@ import com.google.appengine.api.taskqueue.Queue;
 import com.google.appengine.api.taskqueue.QueueFactory;
 import com.google.appengine.api.taskqueue.RetryOptions;
 import com.google.appengine.api.taskqueue.TaskOptions;
+import com.google.appengine.api.utils.SystemProperty;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -20,9 +21,14 @@ public class QueueService extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
-        //todo change default queue
-        Queue queue = QueueFactory.getQueue("slow-queue");
-//        Queue queue = QueueFactory.getDefaultQueue();
+
+        Queue queue;
+        if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
+            queue = QueueFactory.getQueue("slow-queue");
+        } else {
+            queue = QueueFactory.getDefaultQueue();
+
+        }
         queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
 
         response.getWriter().println("Task queued");

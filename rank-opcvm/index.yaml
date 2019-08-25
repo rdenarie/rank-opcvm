@@ -27,3 +27,18 @@ indexes:
     - name: scoreFond
       direction: desc
     - name: id
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: rankInCategory
+    - name: scoreFond
+      direction: desc
+
+
+- kind: DataEntry
+  properties:
+    - name: categPerso
+    - name: rankInCategory
+    - name: scoreFond
+      direction: desc

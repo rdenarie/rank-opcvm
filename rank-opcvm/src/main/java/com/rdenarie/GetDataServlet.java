@@ -9,7 +9,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 
-
+import javax.rmi.CORBA.Util;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -57,12 +57,20 @@ public class GetDataServlet extends HttpServlet {
             int limit=request.getParameter("displayAll") != null ? (request.getParameter("displayAll").equals("true") ? -1 : LIMIT) : LIMIT;
 
             QueryResult queryResult;
+
+            log.fine("Category is "+category);
+
             if (category==null) {
                 queryResult = getDataByDate(currentDate,cursorString,limit);
             } else {
                 queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit);
             }
             datas=queryResult.results;
+            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
+            Collections.reverse(datas);
+            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
+
+
             for (Entity data : datas) {
                 JsonObject json = createJsonObjectValueRow(data);
                 if (json!=null) {
@@ -162,7 +170,23 @@ public class GetDataServlet extends HttpServlet {
         return doQuery(lastDate, filter, startCursorString, limit);
     }
 
-    private QueryResult doQuery(Entity lastDate, FilterPredicate filter, String startCursorString, int limit) {
+    private QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
+
+
+        FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
+        if (filter==null) {
+            filter=rankPropertyFilter;
+
+        } else {
+            // Use CompositeFilter to combine multiple filters
+            CompositeFilter andFilter =
+                    CompositeFilterOperator.and(filter, rankPropertyFilter);
+            filter = andFilter;
+        }
+
+        log.fine("DoQuery : " + filter.toString());
+
+
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
         if (limit>-1) {
@@ -173,7 +197,9 @@ public class GetDataServlet extends HttpServlet {
             fetchOptions.startCursor(Cursor.fromWebSafeString(startCursorString)); // Where we left off
         }
 
-        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
+        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey())
+                .addSort(Utils.RANK_IN_CATEGORY_PROPERTY)
+                .addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
         if (filter!=null) {
             q=q.setFilter(filter);
         }

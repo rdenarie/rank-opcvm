@@ -1,7 +1,5 @@
-- Ajouter la position dans la categorie et le nombre de fonds dans la categorie. On peut aussi ajouter la position lors
-du dernier import pour observer l'évolution. L'idée est de calculer cela à l'affichage puis de le stocker, ou après l'import.
-attention a gérer le cas si on n'a pas de valeur de score le mois précédent. Dans ce cas, on le calcule
 
+- Ajouter la possibilité de delete une date
 - Ajouter le titre de la catégorie en haut de la page
 
 - ajouter un loading
