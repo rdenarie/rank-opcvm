@@ -52,7 +52,9 @@
                             dataArray.push([d, item[1]]);
                         });
 
-                        readAndDraw(dataArray);
+                        var id = jsonData.isin;
+                        var name=jsonData.name;
+                        readAndDraw(dataArray,id,name);
                     },
                     error:function (xhr, ajaxOptions, thrownError){
                          if(xhr.status==404) {
@@ -62,7 +64,7 @@
                 });
             }
 
-            function readAndDraw(jsonData) {
+            function readAndDraw(jsonData,id,name) {
                 var data = new google.visualization.DataTable();
                 data.addColumn('date', 'Date');
                 data.addColumn('number', 'Cours');
@@ -70,7 +72,7 @@
 
                  var options = {
                     chart: {
-                      title: 'Cours de ....',
+                      title: id+" - "+name,
                     },
                     width: 900,
                     height: 500
