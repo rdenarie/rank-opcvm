@@ -228,8 +228,7 @@ public class StoreService extends HttpServlet {
 
                 }
             }
-            break;
-        }
+       }
 
     }
 
