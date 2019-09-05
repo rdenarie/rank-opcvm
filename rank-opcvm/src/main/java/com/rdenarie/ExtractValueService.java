@@ -22,6 +22,7 @@ public class ExtractValueService extends HttpServlet {
 
   private static final Logger log = Logger.getLogger(ExtractValueService.class.getName());
 
+  private static double MAX_EUR_FACE_VALUE=50000.0;
 
   static String[] indexes= {"1erjanvier","1mois","6mois","1an","3ans","5ans","10ans"};
 
@@ -65,6 +66,14 @@ public class ExtractValueService extends HttpServlet {
         extractFacePrice(result, doc);
         extractGerant(result, doc);
         result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
+
+
+
+
+        if (!shouldWeKeepFund(result)) {
+          //do not take in accountfund which are too costly
+          return null;
+        }
       } else {
         return null;
       }
@@ -77,6 +86,37 @@ public class ExtractValueService extends HttpServlet {
 
     }
     return result;
+  }
+
+  private static boolean shouldWeKeepFund(JsonObject result) {
+
+    try {
+      String initial = result.get(Utils.TICKET_IN_PROPERTY).getAsString();
+      if (initial.contains("ND") || !initial.contains(" ")) {
+        return true;
+      }
+
+      double priceInEur = result.get(Utils.PRICE_EUR_PROPERTY).getAsDouble();
+      double priceInCurrency = result.get(Utils.PRICE_PROPERTY).getAsDouble();
+      double ratio = priceInCurrency / priceInEur;
+
+      double ticketInFaceValue;
+      String[] initials = initial.split(" ");
+      if (initials[1].equals("PART") || initials[1].equals("parts")) {
+        ticketInFaceValue = Double.valueOf(initials[0]) * priceInEur;
+      } else if (initials[1].equals("EUR")) {
+        ticketInFaceValue = Double.valueOf(initials[0]);
+      } else {
+        ticketInFaceValue = Double.valueOf(initials[0])  / ratio;
+      }
+
+      log.fine("TicketIn eur value " + ticketInFaceValue);
+      return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
+    } catch (Exception e) {
+      log.severe("Problem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString());
+      e.printStackTrace();
+      return true;
+    }
   }
 
   private static String extractIsin(JsonObject result, Document boursoResponse) {
