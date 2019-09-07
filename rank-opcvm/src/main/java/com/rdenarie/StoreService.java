@@ -174,6 +174,7 @@ public class StoreService extends HttpServlet {
 
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
+                log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
