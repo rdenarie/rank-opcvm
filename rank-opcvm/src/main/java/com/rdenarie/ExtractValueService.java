@@ -70,10 +70,10 @@ public class ExtractValueService extends HttpServlet {
 
 
 
-        if (!shouldWeKeepFund(result)) {
-          //do not take in accountfund which are too costly
-          return null;
-        }
+//        if (!shouldWeKeepFund(result)) {
+//          //do not take in accountfund which are too costly
+//          return null;
+//        }
       } else {
         return null;
       }

@@ -1,6 +1,7 @@
 package com.rdenarie;
 
 
+import com.google.api.client.json.Json;
 import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.*;
 import com.google.cloud.datastore.Datastore;
@@ -17,6 +18,7 @@ import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 
 /**
@@ -66,18 +68,26 @@ public class GetDataServlet extends HttpServlet {
                 queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit);
             }
             datas=queryResult.results;
-            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
-            Collections.reverse(datas);
-            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
 
 
+            datas=datas.parallelStream()
+                    .filter(entity -> ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
+                            ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2)))
+                    .collect(Collectors.toList());
+
+//            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
+//            Collections.reverse(datas);
+//            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
+
+            JsonObject json;
             for (Entity data : datas) {
-                JsonObject json = createJsonObjectValueRow(data);
+                json = createJsonObjectValueRow(data);
                 if (json!=null) {
                     arrayValues.add(json);
                 }
             }
 
+            log.fine("Lenght : "+arrayValues.size());
             jsonData.add("rows", arrayValues);
 
             JsonObject result = new JsonObject();
@@ -107,7 +117,6 @@ public class GetDataServlet extends HttpServlet {
                 result.addProperty("nextTime", ((Date) nextDateEntity.getProperty("date")).getTime());
 
             }
-
 
             result.add("data", jsonData);
             result.addProperty("cursorString",queryResult.cursor);
@@ -173,18 +182,18 @@ public class GetDataServlet extends HttpServlet {
     private QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
 
 
-        FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
-        if (filter==null) {
-            filter=rankPropertyFilter;
+        //FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
+//        if (filter==null) {
+//            filter=rankPropertyFilter;
+//
+//        } else {
+//            // Use CompositeFilter to combine multiple filters
+//            CompositeFilter andFilter =
+//                    CompositeFilterOperator.and(filter, rankPropertyFilter);
+//            filter = andFilter;
+//        }
 
-        } else {
-            // Use CompositeFilter to combine multiple filters
-            CompositeFilter andFilter =
-                    CompositeFilterOperator.and(filter, rankPropertyFilter);
-            filter = andFilter;
-        }
-
-        log.fine("DoQuery : " + filter.toString());
+//        log.fine("DoQuery : " + filter.toString());
 
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
@@ -198,7 +207,7 @@ public class GetDataServlet extends HttpServlet {
         }
 
         Query q = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey())
-                .addSort(Utils.RANK_IN_CATEGORY_PROPERTY)
+//                .addSort(Utils.RANK_IN_CATEGORY_PROPERTY)
                 .addSort(Utils.SCORE_FOND_PROPERTY,SortDirection.DESCENDING);
         if (filter!=null) {
             q=q.setFilter(filter);
@@ -245,7 +254,8 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
-        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
+        values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
+//        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
         values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));

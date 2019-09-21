@@ -1,10 +1,14 @@
 cron:
   - description: "Import data each month"
     url: /storeService
-    schedule: 1 of month 01:00
+    schedule: 21 of month 01:00
+    timezone: Europe/Paris
   - description: "Compute rank after import"
     url: /computeRankService
     schedule: 1 of month 05:00
+    timezone: Europe/Paris
   - description: "Send mail report"
     url: /mailService
     schedule: 1 of month 09:00
+    timezone: Europe/Paris
+

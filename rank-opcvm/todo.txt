@@ -1,3 +1,7 @@
+- ajouter un bouton pour charger tout
+- enlever la limite de 50k et voir la différence
+
+
 
 - Ajouter la possibilité de delete une date
 - Ajouter le titre de la catégorie en haut de la page
