@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Calendar;
+import java.util.TimeZone;
 import java.util.logging.Logger;
 
 /**
@@ -144,5 +145,9 @@ public class Utils {
         }
 
         return null;
+    }
+
+    public static void setTimeZone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Paris"));
     }
 }

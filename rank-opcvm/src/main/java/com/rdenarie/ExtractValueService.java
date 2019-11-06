@@ -29,6 +29,9 @@ public class ExtractValueService extends HttpServlet {
   @Override
   public void doGet(HttpServletRequest request, HttpServletResponse response)
       throws IOException {
+
+    Utils.setTimeZone();
+
     String id=request.getParameter("id");
     JsonObject result = getValue(id, false,"TBD Claude Category");
     response.setContentType("application/json");
@@ -70,10 +73,10 @@ public class ExtractValueService extends HttpServlet {
 
 
 
-//        if (!shouldWeKeepFund(result)) {
-//          //do not take in accountfund which are too costly
-//          return null;
-//        }
+        if (!shouldWeKeepFund(result)) {
+          //do not take in accountfund which are too costly
+          return null;
+        }
       } else {
         return null;
       }
@@ -89,34 +92,36 @@ public class ExtractValueService extends HttpServlet {
   }
 
   private static boolean shouldWeKeepFund(JsonObject result) {
+    return true;
 
-    try {
-      String initial = result.get(Utils.TICKET_IN_PROPERTY).getAsString();
-      if (initial.contains("ND") || !initial.contains(" ")) {
-        return true;
-      }
-
-      double priceInEur = result.get(Utils.PRICE_EUR_PROPERTY).getAsDouble();
-      double priceInCurrency = result.get(Utils.PRICE_PROPERTY).getAsDouble();
-      double ratio = priceInCurrency / priceInEur;
-
-      double ticketInFaceValue;
-      String[] initials = initial.split(" ");
-      if (initials[1].equals("PART") || initials[1].equals("parts")) {
-        ticketInFaceValue = Double.valueOf(initials[0]) * priceInEur;
-      } else if (initials[1].equals("EUR")) {
-        ticketInFaceValue = Double.valueOf(initials[0]);
-      } else {
-        ticketInFaceValue = Double.valueOf(initials[0])  / ratio;
-      }
-
-      log.fine("TicketIn eur value " + ticketInFaceValue);
-      return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
-    } catch (Exception e) {
-      log.severe("Problem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString());
-      e.printStackTrace();
-      return true;
-    }
+    //keep only funds for which the ticketIn is less that MAX_FACE_PRICE
+//    try {
+//      String initial = result.get(Utils.TICKET_IN_PROPERTY).getAsString();
+//      if (initial.contains("ND") || !initial.contains(" ")) {
+//        return true;
+//      }
+//
+//      double priceInEur = result.get(Utils.PRICE_EUR_PROPERTY).getAsDouble();
+//      double priceInCurrency = result.get(Utils.PRICE_PROPERTY).getAsDouble();
+//      double ratio = priceInCurrency / priceInEur;
+//
+//      double ticketInFaceValue;
+//      String[] initials = initial.split(" ");
+//      if (initials[1].equals("PART") || initials[1].equals("parts")) {
+//        ticketInFaceValue = Double.valueOf(initials[0]) * priceInEur;
+//      } else if (initials[1].equals("EUR")) {
+//        ticketInFaceValue = Double.valueOf(initials[0]);
+//      } else {
+//        ticketInFaceValue = Double.valueOf(initials[0])  / ratio;
+//      }
+//
+//      log.fine("TicketIn eur value " + ticketInFaceValue);
+//      return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
+//    } catch (Exception e) {
+//      log.severe("Problem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString());
+//      e.printStackTrace();
+//      return true;
+//    }
   }
 
   private static String extractIsin(JsonObject result, Document boursoResponse) {

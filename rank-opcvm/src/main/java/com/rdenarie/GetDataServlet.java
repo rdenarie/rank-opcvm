@@ -34,6 +34,7 @@ public class GetDataServlet extends HttpServlet {
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
 
+        Utils.setTimeZone();
 
         String dateParameter=request.getParameter("date");
         Entity currentDate;
@@ -70,10 +71,20 @@ public class GetDataServlet extends HttpServlet {
             datas=queryResult.results;
 
 
-            datas=datas.parallelStream()
-                    .filter(entity -> ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
-                            ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2)))
-                    .collect(Collectors.toList());
+            //filter elements which are not in top position :
+            //we keep 20% of better funds
+            //or 100 better in less than 500 in category
+//            datas=datas.parallelStream()
+//                    .filter(entity -> {
+//                        if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY)==null) {
+//                            log.info("Problem with fund "+entity);
+//                            return false;
+//                        }
+//                        return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
+//                                ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
+//
+//                    })
+//                    .collect(Collectors.toList());
 
 //            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
 //            Collections.reverse(datas);

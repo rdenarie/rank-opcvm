@@ -51,6 +51,9 @@ public class StoreService extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
+
+        Utils.setTimeZone();
+
         String id=request.getParameter("id");
         Boolean isBoursoId=request.getParameter("isBoursoId")!= null ? request.getParameter("isBoursoId").equals("true") : false;
         String categoryMsId = request.getParameter("categoryMsId");

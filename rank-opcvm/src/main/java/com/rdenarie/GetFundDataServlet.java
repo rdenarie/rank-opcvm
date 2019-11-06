@@ -48,6 +48,10 @@ public class GetFundDataServlet extends HttpServlet {
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
             throws IOException {
+
+
+        Utils.setTimeZone();
+
         String fundId=request.getParameter("id");
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();

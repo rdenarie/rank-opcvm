@@ -1,5 +1,9 @@
+
+- faire passer la construction du jsonarray dans le stream
+- voir pourquoi le import consomme autant de read ressources
+- ajouter un param a la date : computed = est ce qu'on a fini de la créer ?
+
 - ajouter un bouton pour charger tout
-- enlever la limite de 50k et voir la différence
 
 
 
