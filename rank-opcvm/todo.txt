@@ -1,3 +1,5 @@
+- repasser à la version 1.75.0 du datastore et dans utiliser
+com.google.datastore au lieu de com.google.appengine.api.datastore.*;
 
 - faire passer la construction du jsonarray dans le stream
 - voir pourquoi le import consomme autant de read ressources

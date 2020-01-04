@@ -42,20 +42,23 @@ public class ComputeRankService extends HttpServlet {
 
         Utils.setTimeZone();
 
+        boolean force=request.getParameter("force")!=null && request.getParameter("force").equals("true");
+        log.fine("Force="+force);
         String id=request.getParameter("id");
+
         String category=request.getParameter("categoryId");
         if (id!=null) {
-            computeRank(id);
+            computeRank(id,force);
         } else if (category!=null) {
-            computeRankByCategory(category);
+            computeRankByCategory(category,force);
         } else {
-            computeAllRank();
+            computeAllRank(force);
         }
         response.getWriter().println("Finished");
 
     }
 
-    private void computeRankByCategory(String category) {
+    private void computeRankByCategory(String category,boolean force) {
         Entity lastDate=GetDataServlet.getLastDate();
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
         FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
@@ -75,13 +78,15 @@ public class ComputeRankService extends HttpServlet {
                 queue = QueueFactory.getDefaultQueue();
 
             }
-            queue.addAsync(TaskOptions.Builder.withUrl("/computeRankService").method(TaskOptions.Method.GET).param("id",resultsIterator.next().getProperty("id").toString() ).retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
+            queue.addAsync(TaskOptions.Builder.withUrl("/computeRankService").method(TaskOptions.Method.GET)
+                    .param("id",resultsIterator.next().getProperty("id").toString())
+                    .param("force",""+force)
+                    .retryOptions(RetryOptions.Builder.withTaskRetryLimit(1)));
 
         }
-
     }
 
-    private void computeRank(String id) {
+    private void computeRank(String id, boolean force) {
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
@@ -91,17 +96,19 @@ public class ComputeRankService extends HttpServlet {
         PreparedQuery preparedQuery = datastore.prepare(entityQuery);
         Entity data = preparedQuery.asList(FetchOptions.Builder.withDefaults()).get(0);
 
-        if (data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null){
+        if (force ||data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null
+                || data.getProperty(Utils.CATEGORY_RANK_PROPERTY)==null
+                || data.getProperty(Utils.NUMBER_OF_CATEGORIES)==null){
             log.info("Compute Rank for id "+id);
             GetDataServlet.computeRank(data);
         } else {
             log.info("Rank exists for id "+id);
-
         }
+
 
     }
 
-    private void computeAllRank() {
+    private void computeAllRank(boolean force) {
         log.info("Compute all ranks");
 
         JsonObject categories = CategoriesService.getCategories();
@@ -126,7 +133,8 @@ public class ComputeRankService extends HttpServlet {
                 }
 
 
-                queue.addAsync(TaskOptions.Builder.withUrl("/computeRankService").method(TaskOptions.Method.GET).param("categoryId", categoryMsId));
+                queue.addAsync(TaskOptions.Builder.withUrl("/computeRankService").method(TaskOptions.Method.GET).param(
+                        "categoryId", categoryMsId).param("force", ""+force));
                 log.info("Queue msCategory "+categoryMsId+" "+currentMs+"/"+msCategories.size()+"");
                 currentMs++;
             }

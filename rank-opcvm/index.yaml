@@ -42,3 +42,10 @@ indexes:
     - name: rankInCategory
     - name: scoreFond
       direction: desc
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: scoreCategory
+      direction: desc
+    - name: categMS

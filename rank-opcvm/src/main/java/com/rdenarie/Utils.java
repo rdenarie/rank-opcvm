@@ -45,6 +45,9 @@ public class Utils {
     public static final String DURATION_IMPORTATION_ELEMENT_ENTITY = "DurationEntity";
     public static final String RANK_IN_CATEGORY_PROPERTY = "rankInCategory";
     public static final String NUMBER_FUNDS_IN_CATEGORY_PROPERTY = "numberFundsInCategory";
+    public static final String SCORE_CATEGORY = "scoreCategory";
+    public static final String CATEGORY_RANK_PROPERTY = "categoryRank";
+    public static final String NUMBER_OF_CATEGORIES = "numberOfCategories";
 
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());
@@ -60,18 +63,61 @@ public class Utils {
             e.printStackTrace();
         }
 
-        log.finest("Call url "+urlString);
+        log.fine("Call url "+urlString);
         Long startTime = Calendar.getInstance().getTimeInMillis();
         try {
             URL url = new URL(urlString);
             HttpURLConnection conn = (HttpURLConnection) url.openConnection();
             conn.setDoOutput(true);
             conn.setRequestMethod("GET");
-            String myCookie = "B20_TRADING_ENABLED=1";
-            conn.setRequestProperty("Cookie", myCookie);
+            conn.addRequestProperty("User-Agent", "Mozilla");
+            conn.addRequestProperty("Referer", "google.com");
+//            String myCookie = "B20_TRADING_ENABLED=1";
+//            conn.setRequestProperty("Cookie", myCookie);
 
 
             int respCode = conn.getResponseCode(); // New items get NOT_FOUND on PUT
+            boolean redirect = false;
+
+            // normally, 3xx is redirect
+            if (respCode != HttpURLConnection.HTTP_OK) {
+                if (respCode == HttpURLConnection.HTTP_MOVED_TEMP
+                        || respCode == HttpURLConnection.HTTP_MOVED_PERM
+                        || respCode == HttpURLConnection.HTTP_SEE_OTHER)
+                    redirect = true;
+            }
+            log.fine("Response Code ... " + respCode);
+
+            while (redirect) {
+
+                // get redirect url from "location" header field
+                String newUrl = conn.getHeaderField("Location");
+
+                // get the cookie if need, for login
+                String cookies = conn.getHeaderField("Set-Cookie");
+
+                // open the new connnection again
+                conn = (HttpURLConnection) new URL(newUrl).openConnection();
+                conn.setRequestProperty("Cookie", cookies);
+                conn.addRequestProperty("Accept-Language", "en-US,en;q=0.8");
+                conn.addRequestProperty("User-Agent", "Mozilla");
+                conn.addRequestProperty("Referer", "google.com");
+
+                log.fine("Redirect to URL : " + newUrl);
+                respCode = conn.getResponseCode(); // New items get NOT_FOUND on PUT
+                // normally, 3xx is redirect
+                if (respCode != HttpURLConnection.HTTP_OK) {
+                    if (respCode == HttpURLConnection.HTTP_MOVED_TEMP
+                            || respCode == HttpURLConnection.HTTP_MOVED_PERM
+                            || respCode == HttpURLConnection.HTTP_SEE_OTHER)
+                        redirect = true;
+                }
+
+
+            }
+
+
+
             if (respCode == HttpURLConnection.HTTP_OK || respCode == HttpURLConnection.HTTP_NOT_FOUND) {
                 StringBuffer response = new StringBuffer();
                 String line;
@@ -82,7 +128,6 @@ public class Utils {
                     response.append(line);
                 }
                 reader.close();
-
                 return response.toString();
             } else {
                 return null;

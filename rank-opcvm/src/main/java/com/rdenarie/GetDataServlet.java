@@ -6,17 +6,18 @@ import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.*;
 import com.google.cloud.datastore.Datastore;
 import com.google.cloud.datastore.DatastoreOptions;
+import com.google.cloud.datastore.ProjectionEntity;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 
 
-import javax.rmi.CORBA.Util;
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
@@ -74,20 +75,20 @@ public class GetDataServlet extends HttpServlet {
             //filter elements which are not in top position :
             //we keep 20% of better funds
             //or 100 better in less than 500 in category
-//            datas=datas.parallelStream()
-//                    .filter(entity -> {
-//                        if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY)==null) {
-//                            log.info("Problem with fund "+entity);
-//                            return false;
-//                        }
-//                        return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
-//                                ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
-//
-//                    })
-//                    .collect(Collectors.toList());
+            datas=datas.parallelStream()
+                    .filter(entity -> {
+                        if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY)==null) {
+                            log.info("Problem with fund "+entity);
+                            return false;
+                        }
+                        return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
+                                ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
 
-//            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
-//            Collections.reverse(datas);
+                    })
+                    .collect(Collectors.toList());
+
+            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
+            Collections.reverse(datas);
 //            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
 
             JsonObject json;
@@ -98,7 +99,7 @@ public class GetDataServlet extends HttpServlet {
                 }
             }
 
-            log.fine("Lenght : "+arrayValues.size());
+            log.fine("Length : "+arrayValues.size());
             jsonData.add("rows", arrayValues);
 
             JsonObject result = new JsonObject();
@@ -272,6 +273,11 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
         //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_GEN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_MS_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.SCORE_CATEGORY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_RANK_PROPERTY) != null ?
+                properties.get(Utils.CATEGORY_RANK_PROPERTY).toString() : "N/A"));
+        values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_OF_CATEGORIES) != null ?
+                properties.get(Utils.NUMBER_OF_CATEGORIES).toString() :  "N/A"));
         //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
 
@@ -324,19 +330,44 @@ public class GetDataServlet extends HttpServlet {
         data.setProperty(Utils.RANK_IN_CATEGORY_PROPERTY,position);
         data.setProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY,nbElementsInCategory);
 
+        //recuperation du nombre de catégories différentes avec pour chacune  leur score
+
+        Query categoryQuery = new Query(Utils.DATA_ENTRY_ENTITY)
+                .addProjection(new PropertyProjection(Utils.CATEGORY_MS_PROPERTY, String.class))
+                .addProjection(new PropertyProjection(Utils.SCORE_CATEGORY, Double.class))
+                .setDistinct(true)
+                .setAncestor(data.getParent())
+                .addSort(Utils.SCORE_CATEGORY,SortDirection.DESCENDING);
+        PreparedQuery preparedCategoryQuery = datastore.prepare(categoryQuery);
+        List<Entity> categories=preparedCategoryQuery.asList(FetchOptions.Builder.withDefaults());
+
+        AtomicInteger i = new AtomicInteger(); // any mutable integer wrapper
+        int index = categories.stream()
+                .peek(v -> i.incrementAndGet())
+                .anyMatch(cateory -> cateory.getProperty(Utils.CATEGORY_MS_PROPERTY).equals(data.getProperty(Utils.CATEGORY_MS_PROPERTY))) ? // your
+                // predicate
+                i.get() - 1 : -1;
+        log.fine("Data Category : "+data.getProperty(Utils.CATEGORY_MS_PROPERTY)+", "+categories+", result="+index);
+
+        data.setProperty(Utils.CATEGORY_RANK_PROPERTY,index+1);
+        data.setProperty(Utils.NUMBER_OF_CATEGORIES,categories.size());
         datastore.put(data);
         log.info("Fond "+data.getProperty(Utils.ID_PROPERTY)+" : "+data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)+"/"+data.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY));
+
+
 
 
     }
 
     public static JsonObject createJsonObjectValueString(String value) {
         JsonObject result = new JsonObject();
+        if (value==null) {
+            value="";
+        }
         result.addProperty("v",value);
         return result;
     }
     public static JsonObject createJsonObjectValueAsFloat(String value) {
-
         JsonObject result = new JsonObject();
         result.addProperty("v",new Double(value));
         return result;
@@ -362,6 +393,9 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.GERANT_PROPERTY,"Gérant","","string"));
 //        columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_MS_PROPERTY,"Catégorie MS","","string"));
+        columns.add(createJsonObjectColumnName(Utils.SCORE_CATEGORY,"Score Catégorie","","number"));
+        columns.add(createJsonObjectColumnName(Utils.CATEGORY_RANK_PROPERTY,"Rang catégorie","","number"));
+        columns.add(createJsonObjectColumnName(Utils.NUMBER_OF_CATEGORIES,"Nombre Catégories","","number"));
 //        columns.add(createJsonObjectColumnName(Utils.CATEGORY_PERSO_PROPERTY,"Catégorie Claude","","string"));
         result.add("cols",columns);
     }

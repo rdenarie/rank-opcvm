@@ -179,7 +179,7 @@ public class StoreService extends HttpServlet {
             for (JsonElement msCategory : msCategories) {
                 log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-                //if (!categoryMsId.equals("Actions International Gdes Cap. Mixte")) continue;
+                if (!categoryMsId.equals("Actions Marchés Emergents")) continue;
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
                     queue = QueueFactory.getQueue("slow-queue");
@@ -217,7 +217,7 @@ public class StoreService extends HttpServlet {
                         List<String> fonds = CategoriesService.getIdFondsByMsCategory(msCategory, personalCategory);
                         int current = 1;
                         for (String fond : fonds) {
-                            log.info("Queue fond " + current + "/" + fonds.size() + " for categoryMsId="+categoryMsId+", categoryId="+categoryId);
+                            log.info("Queue fond "+fond+" "+ current + "/" + fonds.size() + " for categoryMsId="+categoryMsId+", categoryId="+categoryId);
                             Queue queue;
                             if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
                                 queue = QueueFactory.getQueue("slow-queue");
@@ -225,7 +225,7 @@ public class StoreService extends HttpServlet {
                                 queue = QueueFactory.getDefaultQueue();
 
                             }
-                            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "true"));
+                            queue.addAsync(TaskOptions.Builder.withUrl("/storeService").method(TaskOptions.Method.GET).param("id", fond).param("isBoursoId", "false"));
                             current++;
                         }
                         return;

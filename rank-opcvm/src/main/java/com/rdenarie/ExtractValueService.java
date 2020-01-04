@@ -258,7 +258,7 @@ public class ExtractValueService extends HttpServlet {
 
 
   public static String getFondValueOnBoursoByIsin(String id) throws IOException {
-    return Utils.getBoursoResponse("https://bourse.boursorama.com/recherche/"+id);
+    return Utils.getBoursoResponse("https://www.boursorama.com/recherche/"+id);
 
   }
   public static String getFondValueOnBoursoByBoursoId(String id) throws IOException {
@@ -356,7 +356,6 @@ public class ExtractValueService extends HttpServlet {
 
 
     Element faceQuotation = doc.selectFirst("div.c-faceplate__quotation");
-    log.info(faceQuotation.toString());
 
     String actif = faceQuotation.select("li.c-list-info__item").get(1).text().split("/")[1].replace(" ","");
     result.addProperty(Utils.ACTIF_PROPERTY,new Double(actif));
