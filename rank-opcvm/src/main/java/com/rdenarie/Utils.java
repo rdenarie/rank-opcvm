@@ -1,5 +1,10 @@
 package com.rdenarie;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStream;
@@ -7,6 +12,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Calendar;
+import java.util.Map;
 import java.util.TimeZone;
 import java.util.logging.Logger;
 
@@ -48,6 +54,7 @@ public class Utils {
     public static final String SCORE_CATEGORY = "scoreCategory";
     public static final String CATEGORY_RANK_PROPERTY = "categoryRank";
     public static final String NUMBER_OF_CATEGORIES = "numberOfCategories";
+    public static final String MISSING_VALUES = "missingValues";
 
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());
@@ -194,5 +201,37 @@ public class Utils {
 
     public static void setTimeZone() {
         TimeZone.setDefault(TimeZone.getTimeZone("Europe/Paris"));
+    }
+
+    public static JsonObject deepCopy(JsonObject jsonObject) {
+        JsonObject result = new JsonObject();
+
+        for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
+            if (entry.getValue().isJsonObject()) {
+                result.add(entry.getKey(), deepCopy(entry.getValue().getAsJsonObject()));
+            } else if (entry.getValue().isJsonArray()) {
+                result.add(entry.getKey(), deepCopy(entry.getValue().getAsJsonArray()));
+            } else if (entry.getValue().isJsonPrimitive()) {
+                result.add(entry.getKey(), new JsonPrimitive(entry.getValue().getAsString()));
+            }
+
+        }
+
+        return result;
+    }
+    private static JsonArray deepCopy(JsonArray jsonArray) {
+        JsonArray result = new JsonArray();
+
+        for (JsonElement jsonElement : jsonArray) {
+            if (jsonElement.isJsonObject()) {
+                result.add(deepCopy(jsonElement.getAsJsonObject()));
+            } else if (jsonElement.isJsonArray()) {
+                result.add(deepCopy(jsonElement.getAsJsonArray()));
+            } else if (jsonElement.isJsonPrimitive()) {
+                result.add(new JsonPrimitive(jsonElement.getAsString()));
+            }
+        }
+
+        return result;
     }
 }

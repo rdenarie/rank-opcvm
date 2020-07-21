@@ -190,6 +190,7 @@ public class CategoriesService  extends HttpServlet {
         categoryAllocationDiversifiees.addProperty("categoryName","Allocations Diversifiées");
         categoriesMs = new JsonArray();
         categoriesMs.add(createMsCategory("Alt - Global Macro",categoriesMsCodes));
+        categoriesMs.add(createMsCategory("Alt - Autres",categoriesMsCodes));
         categoriesMs.add(createMsCategory("Allocation EUR Flexible - International",categoriesMsCodes));
         categoriesMs.add(createMsCategory("Allocation EUR Flexible",categoriesMsCodes));
         categoriesMs.add(createMsCategory("Allocation EUR Agressive",categoriesMsCodes));

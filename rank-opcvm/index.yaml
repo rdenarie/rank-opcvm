@@ -49,3 +49,9 @@ indexes:
     - name: scoreCategory
       direction: desc
     - name: categMS
+
+- kind: DataEntry
+  ancestor: yes
+  properties:
+    - name: categMS
+    - name: scoreCategory

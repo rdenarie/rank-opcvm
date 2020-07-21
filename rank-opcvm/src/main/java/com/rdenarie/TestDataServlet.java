@@ -6,6 +6,8 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.Key;
+import com.google.appengine.api.datastore.PreparedQuery;
+import com.google.appengine.api.datastore.PropertyProjection;
 import com.google.appengine.api.datastore.Query;
 import com.google.appengine.api.datastore.Query.Filter;
 import com.google.appengine.api.datastore.Query.FilterOperator;
@@ -43,29 +45,48 @@ public class TestDataServlet extends HttpServlet {
         Utils.setTimeZone();
 
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
         Entity lastDate=GetDataServlet.getLastDate();
-        Filter categoryFilter = new FilterPredicate(Utils.CATEGORY_MS_PROPERTY, FilterOperator.EQUAL, "");
-//        Filter idFilter = new FilterPredicate(Utils.ID_PROPERTY, FilterOperator., "");
-
-        Query q = new Query(Utils.DATA_ENTRY_ENTITY).setFilter(categoryFilter);
-        List<Entity> entities=datastore.prepare(q).asList(fetchOptions);
+//        Filter categoryFilter = new FilterPredicate(Utils.CATEGORY_MS_PROPERTY, FilterOperator.EQUAL, "");
+        Query distinctCategoryQuery = new Query(Utils.DATA_ENTRY_ENTITY)
+                .addProjection(new PropertyProjection(Utils.CATEGORY_MS_PROPERTY, String.class))
+                .addProjection(new PropertyProjection(Utils.SCORE_CATEGORY, Double.class))
+                .setDistinct(true)
+                .setAncestor(lastDate.getKey())
+                .addSort(Utils.SCORE_CATEGORY, Query.SortDirection.DESCENDING);
+        PreparedQuery preparedDistinctCategoryQuery = datastore.prepare(distinctCategoryQuery);
+        List<Entity> categories=preparedDistinctCategoryQuery.asList(FetchOptions.Builder.withDefaults());
 
         JsonArray arrayValues = new JsonArray();
-        for (Entity data : entities) {
+        int i=1;
+        for (Entity data : categories) {
             JsonArray array = new JsonArray();
+            array.add(i);
             array.add(data.getParent().getName());
-            array.add((String)data.getProperty(Utils.ID_PROPERTY));
-            array.add((Double)data.getProperty(Utils.PRICE_EUR_PROPERTY));
             array.add((String)data.getProperty(Utils.CATEGORY_MS_PROPERTY));
+            array.add((Double)data.getProperty(Utils.SCORE_CATEGORY));
+
+            Filter categoryFilter= new FilterPredicate(Utils.CATEGORY_MS_PROPERTY,FilterOperator.EQUAL,
+                    (String)data.getProperty(Utils.CATEGORY_MS_PROPERTY));
+            Filter categoryScoreFilter= new FilterPredicate(Utils.SCORE_CATEGORY, FilterOperator.EQUAL,
+                    (Double)data.getProperty(Utils.SCORE_CATEGORY));
+            Query fund = new Query(Utils.DATA_ENTRY_ENTITY)
+                    .setAncestor(lastDate.getKey())
+                    .setFilter(categoryFilter)
+                    .setFilter(categoryScoreFilter);
+            PreparedQuery preparedQuery = datastore.prepare(fund);
+            Entity fundEntity = preparedQuery.asList(FetchOptions.Builder.withLimit(1)).get(0);
+
+            array.add((String)fundEntity.getProperty(Utils.ID_PROPERTY));
+
             arrayValues.add(array);
+            i++;
         }
 
 //        List<Key> keys= entities.stream().map(entity -> entity.getKey()).collect(Collectors.toList());
 //        datastore.delete(keys);
 
         JsonObject result = new JsonObject();
-//        result.add("data", arrayValues);
+        result.add("data", arrayValues);
         response.setContentType("application/json");
         response.setCharacterEncoding("UTF-8");
         response.getWriter().write(result.toString());

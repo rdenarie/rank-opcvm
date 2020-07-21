@@ -3,7 +3,10 @@ package com.rdenarie;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
+import com.google.gson.JsonPrimitive;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -14,7 +17,15 @@ import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
+import java.time.Instant;
+import java.time.Period;
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Calendar;
+import java.util.List;
+import java.util.Map;
 import java.util.logging.Logger;
 
 @WebServlet(name = "ExtractValueService", value = "/extractValueService")
@@ -46,8 +57,14 @@ public class ExtractValueService extends HttpServlet {
 
       Document doc = Jsoup.parse(boursoResponse);
 
+      if (!checkLastValue(doc)) {
+        return null;
+      }
+
+
       String isin = extractIsin(result, doc);
       if (isin!=null) {
+        log.fine("Read datas for isin="+isin);
         extractValues(result, doc);
         JsonObject values = result.getAsJsonObject("values");
         if (values.size() == 0) {
@@ -55,7 +72,7 @@ public class ExtractValueService extends HttpServlet {
           //ignore it without exception
           return null;
         }
-        double scoreFond = calculScore(values.getAsJsonObject("fond"));
+        double scoreFond = calculScoreFond(values.getAsJsonObject("fond"), values.getAsJsonObject("category"));
         double scoreCategory = calculScore(values.getAsJsonObject("category"));
         double scorePercentile = calculScorePercentile(values.getAsJsonObject("percentile"));
         result.addProperty("scoreFond", scoreFond);
@@ -69,6 +86,10 @@ public class ExtractValueService extends HttpServlet {
         extractFacePrice(result, doc);
         extractGerant(result, doc);
         result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
+
+
+
+
 
 
 
@@ -89,6 +110,29 @@ public class ExtractValueService extends HttpServlet {
 
     }
     return result;
+  }
+
+  private static boolean checkLastValue(Document boursoResponse) {
+    //return false if the last known value is older than 1 year
+
+    Element name = boursoResponse.selectFirst("div.c-faceplate__real-time");
+    if (name==null) return true;
+    String date = name.text().substring(name.text().length()-10);
+
+    SimpleDateFormat dateFormat = new SimpleDateFormat("dd/MM/yyyy");
+    Instant instant = null;
+    try {
+      instant = dateFormat.parse(date).toInstant();
+      Instant now = Instant.now();
+
+      return !instant.isBefore(now.minus(Period.ofDays(365)));
+    } catch (ParseException e) {
+      log.fine("Error when parsing date : "+date);
+      e.printStackTrace();
+    }
+    return true;
+
+
   }
 
   private static boolean shouldWeKeepFund(JsonObject result) {
@@ -127,8 +171,8 @@ public class ExtractValueService extends HttpServlet {
   private static String extractIsin(JsonObject result, Document boursoResponse) {
     Element name = boursoResponse.selectFirst("h2.c-faceplate__isin");
     if (name==null) return null;
-    result.addProperty("id",name.text().split(" - ")[0]);
-    return name.text().split(" - ")[0];
+    result.addProperty("id",name.text().split(" -")[0]);
+    return name.text().split(" -")[0];
   }
 
   private static void storeException(String id, Exception e) {
@@ -145,18 +189,18 @@ public class ExtractValueService extends HttpServlet {
   }
 
 
-  private static double calculScore(JsonObject object) {
+  private static double calculScore(JsonObject fondValues) {
     double score;
     int current = 1;
     int nbElement=0;
     double somme=0d;
     double lastValue = 0d;
     while (current<=indexes.length) {
-      if (object.get(indexes[current-1]) == null) {
+      if (fondValues.get(indexes[current-1]) == null) {
         current ++;
         continue;
       }
-      String val = object.get(indexes[current-1]).getAsString();
+      String val = fondValues.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
         somme+=new Double(val);
         lastValue = new Double(val);
@@ -170,14 +214,93 @@ public class ExtractValueService extends HttpServlet {
       return 0d;
     }
     if (nbElement>4) {
-      score=score+object.get("3ans").getAsDouble();
+      if (fondValues.get("3ans")!=null) {
+        score = score + fondValues.get("3ans").getAsDouble();
+      } else if (fondValues.get("5ans")!=null) {
+        score = score + fondValues.get("5ans").getAsDouble();
+      } else {
+        score = score + fondValues.get("10ans").getAsDouble();
+      }
     } else {
       score=score+lastValue;
     }
     return Math.round(score * 100.0) / 100.0;
 
+  }
 
 
+
+  private static double calculScoreFond(JsonObject fondValues, JsonObject categoryValues) {
+    JsonObject fondValuesCompleted =Utils.deepCopy(fondValues);
+    if (hasMissingValues(fondValuesCompleted)) {
+      log.fine("hasMissingValues");
+      int current=indexes.length;
+      boolean startModification = false;
+      while (current>0) {
+        log.fine("current="+current);
+        log.fine("startModification="+startModification);
+        if (!startModification) {
+          if (fondValuesCompleted.get(indexes[current - 1]) != null) {
+            startModification = true;
+          }
+        } else {
+          if (fondValuesCompleted.get(indexes[current - 1]) == null) {
+            fondValuesCompleted.addProperty(indexes[current - 1],categoryValues.get(indexes[current - 1]).getAsDouble());
+          }
+        }
+        current--;
+      }
+    }
+    fondValues=sort(fondValuesCompleted);
+
+    double score;
+    int current = 1;
+    int nbElement=0;
+    double somme=0d;
+    double lastValue = 0d;
+    while (current<=indexes.length) {
+      if (fondValues.get(indexes[current-1]) == null) {
+        current ++;
+        continue;
+      }
+      String val = fondValues.get(indexes[current-1]).getAsString();
+      if (!val.equals("")) {
+        somme+=new Double(val);
+        lastValue = new Double(val);
+        nbElement++;
+      }
+      current++;
+    }
+
+    score=somme/nbElement;
+    if (nbElement==0) {
+      return 0d;
+    }
+    if (nbElement>4) {
+      if (fondValues.get("3ans")!=null) {
+        score = score + fondValues.get("3ans").getAsDouble();
+      } else if (fondValues.get("5ans")!=null) {
+        score = score + fondValues.get("5ans").getAsDouble();
+      } else {
+        score = score + fondValues.get("10ans").getAsDouble();
+      }
+    } else {
+      score=score+lastValue;
+    }
+    return Math.round(score * 100.0) / 100.0;
+
+  }
+
+  private static JsonObject sort(JsonObject objectToSort) {
+    JsonObject result = new JsonObject();
+    int current = 1;
+    while (current<=indexes.length) {
+      if (objectToSort.get(indexes[current-1]) != null) {
+        result.addProperty(indexes[current - 1],objectToSort.get(indexes[current - 1]).getAsDouble());
+      }
+      current ++;
+    }
+    return result;
   }
 
   private static int calculScorePercentile(JsonObject object) {
@@ -207,41 +330,81 @@ public class ExtractValueService extends HttpServlet {
   }
 
   private static void extractValues(JsonObject result, Document boursoResponse) {
-
     Element fundPerf = boursoResponse.selectFirst("div.c-fund-performances__table");
-
-    Elements trs = fundPerf.select("tr.c-table__row");
     JsonObject values = new JsonObject();
-    int i=0;
-    for (Element tr: trs) {
-      Elements tds=tr.select("td.c-table__cell");
-      JsonObject listeValue = new JsonObject();
-      int j=0;
-      for (Element td : tds) {
-        if (!td.text().equals("-") && !td.text().equals("")) {
-          if (i == 3) {
-            //percentile
-            listeValue.addProperty(indexes[j], new Integer(td.text().replace("%", "")));
-          } else if (i == 0) {
-            //do nothing, it tr in thead
-          } else {
-            //fond ou category
-            listeValue.addProperty(indexes[j], new Double(td.text().replace("%", "")));
+    List<String> thead = new ArrayList<String>();
+    if (fundPerf!=null) {
+      Elements trs = fundPerf.select("tr.c-table__row");
+      int i=0;
+      for (Element tr: trs) {
+        if (i==0) {
+          //thead
+          Elements tds=tr.select("th.c-table__title");
+          for (Element td : tds) {
+            if (!td.text().equals("")) {
+              thead.add(td.text());
+            }
           }
+          i++;
+          continue;
         }
-        j++;
+        Elements tds=tr.select("td.c-table__cell");
+        JsonObject listeValue = new JsonObject();
+        int j=0;
+        for (Element td : tds) {
+          if (!td.text().equals("-") && !td.text().equals("")) {
+            int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ","").replace("janv.","janvier"));
+            if (i == 3) {
+              //percentile
+              listeValue.addProperty(indexes[index], new Integer(td.text().replace("%", "")));
+            } else if (i == 0) {
+              //do nothing, it tr in thead
+            } else {
+              //fond ou category
+              listeValue.addProperty(indexes[index], new Double(td.text().replace("%", "")));
+            }
+          }
+          j++;
+        }
+        if (i==1) {
+
+          values.add("fond", listeValue);
+        } else if (i==2) {
+          values.add("category", listeValue);
+        }else if (i==3) {
+          values.add("percentile", listeValue);
+        }
+        i++;
       }
-      if (i==1) {
-        values.add("fond", listeValue);
-      } else if (i==2) {
-        values.add("category", listeValue);
-      }else if (i==3) {
-        values.add("percentile", listeValue);
-      }
-      i++;
+
     }
 
+    JsonObject fundValue = values.get("fond").getAsJsonObject();
+    hasMissingValues(fundValue);
+    result.addProperty("missingValues",hasMissingValues(fundValue));
     result.add("values", values);
+
+  }
+
+  private static boolean hasMissingValues(JsonObject fundValue) {
+    int current = 1;
+    int firstNullIndex=-1;
+    boolean foundNull=false;
+    int lastValueIndex=-1;
+    while (current<=indexes.length) {
+      if (fundValue.get(indexes[current - 1]) == null) {
+        if (!foundNull) {
+          foundNull=true;
+          firstNullIndex=current-1;
+        }
+      } else {
+        lastValueIndex=current-1;
+      }
+      current++;
+    }
+    log.fine("FirstNullIndex="+firstNullIndex);
+    log.fine("lastValueIndex="+lastValueIndex);
+    return (firstNullIndex!= -1 && firstNullIndex<lastValueIndex);
   }
 
   private static void extractName(JsonObject result, Document boursoResponse) {
@@ -355,9 +518,8 @@ public class ExtractValueService extends HttpServlet {
     }
 
 
-    Element faceQuotation = doc.selectFirst("div.c-faceplate__quotation");
-
-    String actif = faceQuotation.select("li.c-list-info__item").get(1).text().split("/")[1].replace(" ","");
+    Element faceQuotation = doc.select("div.c-faceplate__quotation").get(2);
+    String actif = faceQuotation.select("li.c-list-info__item").get(0).text().split("/")[1].replace(" ","");
     result.addProperty(Utils.ACTIF_PROPERTY,new Double(actif));
 
 

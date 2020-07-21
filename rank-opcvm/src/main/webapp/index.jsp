@@ -60,6 +60,10 @@
                 float:right;
                 display:none;
             }
+            .cellIsin {
+                cursor:pointer;
+            }
+
         </style>
         <!--
         <script type="text/javascript" src="https://www.gstatic.com/charts/loader.js"></script>
@@ -89,6 +93,8 @@
 
                 </h1>
                 <span id="nextDate" style="display:none"><button id="nextButton"><i class="material-icons">keyboard_arrow_right</i></button></span>
+                <span id="deleteDate" style="display:none;float:right;margin-right: 10px;"><button id="deleteButton"><i
+                class="material-icons">delete</i></button></span>
             </div>
         </div>
 
@@ -225,10 +231,19 @@
                             });
 
                         }
+
+                        var currentDate = jsonData.dateTime;
+                        //$("#deleteDate").show();
+                        $("#deleteButton").click(function() {
+                            var deleteUrl = "/deleteDataServlet?date="+currentDate;
+                            console.log(deleteUrl);
+                            window.location = deleteUrl;
+                        });
                     }
                     if (!$(window).data('data')) {
                         $(window).data('jsonData', jsonData);
                         var dataTable = new google.visualization.DataTable($(window).data('jsonData').data,0.6);
+                        dataTable.setColumnProperty(11, 'className', 'cellIsin');
                         $(window).data('data', dataTable);
                     } else {
                         $.merge($(window).data('jsonData').data.rows, jsonData.data.rows);
@@ -264,6 +279,7 @@
                         $(window).data('tableChart',tableChart);
 
                         $(window).data('dashboard').bind(categorySelector, tableChart);
+                        google.visualization.events.addListener(tableChart, 'ready', createListeners);
                         $(window).data('dashboard').draw($(window).data('data'),{allowHTML:true});
                     } else {
 
@@ -336,7 +352,13 @@
                          }
                     });
                 });
-
+                function createListeners() {
+                  // Handler for .ready() called.
+                  $(".cellIsin").click(function() {
+                        console.log($(this).text());
+                        window.open("/detailFund.jsp?id="+$(this).text(),"_self");
+                    });
+                }
 
          </script>
 

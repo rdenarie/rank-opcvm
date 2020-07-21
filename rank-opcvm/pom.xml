@@ -33,8 +33,8 @@
     <dependency>
       <groupId>com.google.cloud</groupId>
       <artifactId>google-cloud-datastore</artifactId>
-      <version>1.49.0</version>
-<!--      <version>1.75.0</version>-->
+      <!--      <version>1.49.0</version>-->
+      <version>1.75.0</version>
     </dependency>
     <dependency>
       <groupId>com.google.code.gson</groupId>
@@ -181,7 +181,6 @@
         <artifactId>maven-resources-plugin</artifactId>
         <version>3.0.2</version>
       </plugin>
-
       <plugin>
         <artifactId>maven-deploy-plugin</artifactId>
         <version>3.1</version>

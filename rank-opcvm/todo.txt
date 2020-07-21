@@ -2,18 +2,20 @@
 com.google.datastore au lieu de com.google.appengine.api.datastore.*;
 
 - faire passer la construction du jsonarray dans le stream
-- voir pourquoi le import consomme autant de read ressources
 - ajouter un param a la date : computed = est ce qu'on a fini de la créer ?
 
 - ajouter un bouton pour charger tout
 
 
 
-- Ajouter la possibilité de delete une date
+- Ajouter la possibilité de delete une date => a voir pour la cacher. Creation d'un mode "admin" (dans lequel on pourrait aussi
+cliquer sur les liens de isin pour voir le détail)
 - Ajouter le titre de la catégorie en haut de la page
 
-- ajouter un loading
-- mettre un lien sur l'isin
-- afficher la page détaillée d'un fond (avec des courbes de position ndans la catégorie)
+- ajouter un loading (d'abord sur la page principale. A  voir si on le mets sur les catégories)
+- mettre un lien sur l'isin (avec onclick)
+- afficher la page détaillée d'un fond (avec des courbes de position ndans la catégorie, ajouter le détail du calcul du score)
 - ajouter le classement des catégories
+
+
 

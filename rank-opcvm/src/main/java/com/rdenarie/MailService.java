@@ -55,6 +55,13 @@ public class MailService extends HttpServlet {
             PreparedQuery preparedQuery = datastore.prepare(entityQuery);
             int nbElementForLastDate = preparedQuery.countEntities(FetchOptions.Builder.withDefaults());
 
+            Query.Filter missingValueFilter= new Query.FilterPredicate(Utils.MISSING_VALUES, Query.FilterOperator.EQUAL,
+                    true);
+            Query entityQueryWithProblem = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).setFilter(missingValueFilter);
+            PreparedQuery preparedQueryWithProblem = datastore.prepare(entityQueryWithProblem);
+            int nbElementWithProblem= preparedQueryWithProblem.countEntities(FetchOptions.Builder.withDefaults());
+
+
             Date date = (Date) lastDate.getProperty("date");
             Calendar lastCal = Calendar.getInstance();
             lastCal.setTime(date);
@@ -70,6 +77,9 @@ public class MailService extends HttpServlet {
 
             String result = "Dernier import ("+lastCal.get(Calendar.DAY_OF_MONTH) + "/" + (lastCal.get(Calendar.MONTH) + 1) + "/" + lastCal.get(Calendar.YEAR)+") : "+nbElementForLastDate+" éléments importés.\n";
             result += "Avant dernier import ("+previousLastCal.get(Calendar.DAY_OF_MONTH) + "/" + (previousLastCal.get(Calendar.MONTH) + 1) + "/" + previousLastCal.get(Calendar.YEAR)+") : "+nbElementForPreviousLastDate+" éléments importés.\n";
+            result += "Elements avec probleme ("+lastCal.get(Calendar.DAY_OF_MONTH) + "/" + (lastCal.get(Calendar.MONTH) + 1) +
+                    "/" + lastCal.get(Calendar.YEAR)+") : "+nbElementWithProblem+"\n";
+
 
             msg.setText(result);
             Transport.send(msg);

@@ -179,7 +179,7 @@ public class StoreService extends HttpServlet {
             for (JsonElement msCategory : msCategories) {
                 log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-                if (!categoryMsId.equals("Actions Marchés Emergents")) continue;
+                //if (!categoryMsId.equals("Alt - Autres")) continue;
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
                     queue = QueueFactory.getQueue("slow-queue");

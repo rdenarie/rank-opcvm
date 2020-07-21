@@ -109,6 +109,8 @@ public class GetDataServlet extends HttpServlet {
             cal.setTime(date);
 
             result.addProperty("date", cal.get(Calendar.DAY_OF_MONTH) + "/" + (cal.get(Calendar.MONTH) + 1) + "/" + cal.get(Calendar.YEAR));
+            result.addProperty("dateTime",
+                    date.getTime());
 
 
             Entity previousDateEntity= getPreviousDate(currentDate);
@@ -138,7 +140,7 @@ public class GetDataServlet extends HttpServlet {
         }
     }
 
-    private Entity getDateFromParameter(Date date) {
+    public static Entity getDateFromParameter(Date date) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
         Filter dateFilter = new FilterPredicate("date", FilterOperator.EQUAL,date);
@@ -191,7 +193,7 @@ public class GetDataServlet extends HttpServlet {
         return doQuery(lastDate, filter, startCursorString, limit);
     }
 
-    private QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
+    private static QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
 
 
         //FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
@@ -261,26 +263,27 @@ public class GetDataServlet extends HttpServlet {
         values.add(createJsonObjectValueString(properties.get(Utils.MSRATING_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.ENTREE_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.SORTIE_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.CURRENCY_PROPERTY).toString()));
+//        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_PROPERTY).toString()));
         values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
+        values.add(createJsonObjectValueString(properties.get(Utils.CURRENCY_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
 //        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
         values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
+//        values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
         //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_GEN_PROPERTY).toString()));
         values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_MS_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.SCORE_CATEGORY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_RANK_PROPERTY) != null ?
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_CATEGORY).toString()));
+        values.add(createJsonObjectValueAsFloat(properties.get(Utils.CATEGORY_RANK_PROPERTY) != null ?
                 properties.get(Utils.CATEGORY_RANK_PROPERTY).toString() : "N/A"));
         values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_OF_CATEGORIES) != null ?
                 properties.get(Utils.NUMBER_OF_CATEGORIES).toString() :  "N/A"));
         //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
-
+        values.add(createJsonObjectValueString(properties.get(Utils.MISSING_VALUES) != null && properties.get(Utils.MISSING_VALUES).toString().equals("true") ?
+                properties.get(Utils.MISSING_VALUES).toString() : ""));
 
 
 
@@ -359,6 +362,7 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
+
     public static JsonObject createJsonObjectValueString(String value) {
         JsonObject result = new JsonObject();
         if (value==null) {
@@ -382,14 +386,14 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.MSRATING_PROPERTY,"Etoiles MS","","number"));
         columns.add(createJsonObjectColumnName(Utils.ENTREE_PROPERTY,"F-In","","string"));
         columns.add(createJsonObjectColumnName(Utils.SORTIE_PROPERTY,"F-Out","","string"));
-        columns.add(createJsonObjectColumnName(Utils.PRICE_PROPERTY,"Cours","","number"));
-        columns.add(createJsonObjectColumnName(Utils.CURRENCY_PROPERTY,"Devise","","string"));
+//        columns.add(createJsonObjectColumnName(Utils.PRICE_PROPERTY,"Cours","","number"));
         columns.add(createJsonObjectColumnName(Utils.PRICE_EUR_PROPERTY,"Cours (EUR)","","number"));
+        columns.add(createJsonObjectColumnName(Utils.CURRENCY_PROPERTY,"Devise","","string"));
         columns.add(createJsonObjectColumnName(Utils.TICKET_IN_PROPERTY,"Ticket Initial","","string"));
         columns.add(createJsonObjectColumnName(Utils.TICKET_RENEW_PROPERTY,"Ticket Renew","","string"));
         columns.add(createJsonObjectColumnName(Utils.ID_PROPERTY,"Code ISIN","","string"));
         columns.add(createJsonObjectColumnName(Utils.COURANT_PROPERTY,"F-Courant","","string"));
-        columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en m)","","number"));
+//        columns.add(createJsonObjectColumnName(Utils.ACTIF_PROPERTY,"Actifs (en m)","","number"));
         columns.add(createJsonObjectColumnName(Utils.GERANT_PROPERTY,"Gérant","","string"));
 //        columns.add(createJsonObjectColumnName(Utils.CATEGORY_GEN_PROPERTY,"Catégorie Générale","","string"));
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_MS_PROPERTY,"Catégorie MS","","string"));
@@ -397,6 +401,7 @@ public class GetDataServlet extends HttpServlet {
         columns.add(createJsonObjectColumnName(Utils.CATEGORY_RANK_PROPERTY,"Rang catégorie","","number"));
         columns.add(createJsonObjectColumnName(Utils.NUMBER_OF_CATEGORIES,"Nombre Catégories","","number"));
 //        columns.add(createJsonObjectColumnName(Utils.CATEGORY_PERSO_PROPERTY,"Catégorie Claude","","string"));
+        columns.add(createJsonObjectColumnName(Utils.MISSING_VALUES,"Valeurs manquantes","","string"));
         result.add("cols",columns);
     }
 
@@ -432,12 +437,12 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    public QueryResult getDataByDate(Entity date, String startCursorString,int limit) {
+    public static QueryResult getDataByDate(Entity date, String startCursorString,int limit) {
         return doQuery(date,null, startCursorString, limit);
     }
 
 
-    public class QueryResult {
+    public static class QueryResult {
         String cursor;
         List<Entity> results;
 
