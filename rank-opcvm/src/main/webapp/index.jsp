@@ -54,6 +54,7 @@
 
            .dashboardDiv {
             margin-top:120px;
+            height:calc(100% - 130px);
            }
 
             .displayAll {
@@ -117,6 +118,7 @@
          <script type="text/javascript">
                 google.charts.load('current', {'packages':['table', 'controls']});
                 google.charts.setOnLoadCallback(drawTable);
+                window.scrollTop=0;
                 var url="getData";
                 var dateUrl="/index.jsp";
                 var parameter = "<%=request.getParameter("category")%>";
@@ -145,25 +147,22 @@
 
 
                 function infiniteScroll() {
-                    // vérifie si c'est un iPhone, iPod ou iPad
-
                     $(window).data('ajaxready', true);
                     var deviceAgent = navigator.userAgent.toLowerCase();
                     var agentID = deviceAgent.match(/(iphone|ipod|ipad)/);
 
                     // on déclence une fonction lorsque l'utilisateur utilise sa molette
-                    $(window).scroll(function() {
+                    var scrollable = $("#dataTable .google-visualization-table>div");
+                    scrollable.scroll(function() {
                         if ($(window).data('ajaxready') == false) return;
-                        // cette condition vaut true lorsque le visiteur atteint le bas de page
-                        // si c'est un iDevice, l'évènement est déclenché 150px avant le bas de page
-                        if(($(window).scrollTop() + $(window).height()) + 300>= $(document).height()
-                        || agentID && ($(window).scrollTop() + $(window).height()) + 450 > $(document).height()) {
+
+                        if (scrollable.scrollTop() + scrollable.height() + 1500 >= scrollable.find("table").height()){
                             $(window).data('ajaxready', false);
                             // on effectue nos traitements
                             var cursor=$("#cursor").text();
                             if (cursor!="") {
                                 var nextUrl=url;
-                                if (nextUrl.indexOf("?")>-1) {
+                                if (nextUrl.indexOf("?")>-1){
                                     nextUrl+="&";
                                 } else {
                                     nextUrl+="?";
@@ -234,11 +233,10 @@
 
                         var currentDate = jsonData.dateTime;
                         //$("#deleteDate").show();
-                        $("#deleteButton").click(function() {
-                            var deleteUrl = "/deleteDataServlet?date="+currentDate;
-                            console.log(deleteUrl);
-                            window.location = deleteUrl;
-                        });
+                        //$("#deleteButton").click(function() {
+                        //    var deleteUrl = "/deleteDataServlet?date="+currentDate;
+                        //    window.location = deleteUrl;
+                        //});
                     }
                     if (!$(window).data('data')) {
                         $(window).data('jsonData', jsonData);
@@ -282,11 +280,8 @@
                         google.visualization.events.addListener(tableChart, 'ready', createListeners);
                         $(window).data('dashboard').draw($(window).data('data'),{allowHTML:true});
                     } else {
-
-                        var scrollTop=$(window).scrollTop();
-                        google.visualization.events.addListener($(window).data('tableChart'), 'ready', function() {
-                            $(window).scrollTop(scrollTop);
-                        });
+                        var scrollable = $("#dataTable .google-visualization-table>div");
+                        window.scrollTop=scrollable.scrollTop();
                         $(window).data('tableChart').draw()
 
                     }
@@ -294,13 +289,14 @@
 
                 function drawTable() {
                     var tempUrl=url;
-                    if (tempUrl.indexOf("?")>-1) {
+                    if (tempUrl.indexOf("?")>-1) {
                         tempUrl+="&";
                     } else {
                         tempUrl+="?";
                     }
-                    tempUrl+="displayAll=true";
-
+                    if (parameter!=null && parameter!="" && parameter!="null") {
+                        tempUrl+="displayAll=true";
+                    }
                     var jsonData = $.ajax({
                         url: tempUrl,
                         dataType: "json",
@@ -315,7 +311,6 @@
                          }
                     });
                 }
-                infiniteScroll();
 
                 $("#displayAll").click(function() {
                     $(window).data('ajaxready', false);
@@ -352,10 +347,15 @@
                          }
                     });
                 });
+
+
                 function createListeners() {
+                    infiniteScroll();
+                    var scrollable = $("#dataTable .google-visualization-table>div");
+                    scrollable.scrollTop(window.scrollTop);
+
                   // Handler for .ready() called.
                   $(".cellIsin").click(function() {
-                        console.log($(this).text());
                         window.open("/detailFund.jsp?id="+$(this).text(),"_self");
                     });
                 }

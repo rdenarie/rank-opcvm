@@ -29,7 +29,7 @@ import java.util.stream.Collectors;
 @WebServlet(name = "GetDataServlet", value = "/getDataServlet")
 public class GetDataServlet extends HttpServlet {
     private static final Logger log = Logger.getLogger(GetDataServlet.class.getName());
-    private static final int LIMIT = 50;
+    private static final int LIMIT = 200;
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
