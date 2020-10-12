@@ -21,13 +21,17 @@
 
 
             </div>
+            <div id="dataCategoryTable">
+
+
+            </div>
         </div>
          <script type="text/javascript">
 
 
             var parameter = "<%=request.getParameter("id")%>";
             if (parameter!=null && parameter!="" && parameter!="null") {
-                google.charts.load('current', {'packages':['line']});
+                google.charts.load('current', {'packages':['corechart']});
                 google.charts.setOnLoadCallback(drawTable);
 
 
@@ -47,14 +51,18 @@
                     {
 
                         var dataArray = [];
+                        var dataCategoryArray = [];
                         $.each(jsonData.data, function (i, item) {
                             var d = new Date(item[0]);
                             dataArray.push([d, item[1]]);
+                            dataCategoryArray.push([d, item[3],item[4]]);
+
                         });
 
                         var id = jsonData.isin;
                         var name=jsonData.name;
-                        readAndDraw(dataArray,id,name);
+                        readAndDraw('dataTable',dataArray,id,name);
+                        readAndDrawCategoryTable('dataCategoryTable',dataCategoryArray,id,name);
                     },
                     error:function (xhr, ajaxOptions, thrownError){
                          if(xhr.status==404) {
@@ -64,23 +72,42 @@
                 });
             }
 
-            function readAndDraw(jsonData,id,name) {
+            function readAndDraw(divId,jsonData,id,name) {
                 var data = new google.visualization.DataTable();
                 data.addColumn('date', 'Date');
                 data.addColumn('number', 'Cours');
                 data.addRows(jsonData);
 
                  var options = {
-                    chart: {
-                      title: id+" - "+name,
-                    },
+                    title: id+" - "+name,
                     width: 900,
                     height: 500
                   };
 
-                  var chart = new google.charts.Line(document.getElementById('dataTable'));
-                  chart.draw(data, google.charts.Line.convertOptions(options));
+                  var chart = new google.visualization.LineChart(document.getElementById(divId));
+                  chart.draw(data, options);
             }
+
+            function readAndDrawCategoryTable(divId,jsonData,id,name) {
+                var data = new google.visualization.DataTable();
+                data.addColumn('date', 'Date');
+                data.addColumn('number', 'Rang');
+                data.addColumn('number', 'Total');
+                data.addRows(jsonData);
+
+                 var options = {
+                    title: "Rank evolution "+id+" - "+name,
+                    vAxis: {
+                        title: "Rang",
+                        direction: -1
+                    },
+                    width: 900,
+                    height: 500
+                  };
+                  var chart = new google.visualization.LineChart(document.getElementById(divId));
+                  chart.draw(data, options);
+            }
+
 
 
 
