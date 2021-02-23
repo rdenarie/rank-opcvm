@@ -174,12 +174,14 @@ public class StoreService extends HttpServlet {
         for (JsonElement personalCategory : personalCategories) {
             JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
             String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
+//            if (!categoryId.equals("Autres")) continue;
 
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
                 log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-                //if (!categoryMsId.equals("Alt - Autres")) continue;
+//                if (!categoryMsId.equals("Autres")) continue;
+
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
                     queue = QueueFactory.getQueue("slow-queue");
