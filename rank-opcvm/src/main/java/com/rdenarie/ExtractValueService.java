@@ -467,7 +467,9 @@ public class ExtractValueService extends HttpServlet {
         String fraisCourantValue = "";
         Elements fraisCourant = cost.select("td");
         for (Element courant : fraisCourant) {
-          fraisCourantValue = courant.text();
+          if (!courant.text().trim().equals("")) {
+            fraisCourantValue = courant.text();
+          }
         }
         fraisCourantValue=fraisCourantValue.trim();
 

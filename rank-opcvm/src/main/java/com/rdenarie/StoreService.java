@@ -180,7 +180,7 @@ public class StoreService extends HttpServlet {
             for (JsonElement msCategory : msCategories) {
                 log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-//                if (!categoryMsId.equals("Autres")) continue;
+//                if (!categoryMsId.equals("Actions Secteur Technologies")) continue;
 
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {
