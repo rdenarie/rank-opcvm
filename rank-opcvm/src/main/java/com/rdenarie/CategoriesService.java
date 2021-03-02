@@ -127,7 +127,8 @@ public class CategoriesService  extends HttpServlet {
         int currentPage=1;
         do {
 
-            String url = "http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page="+currentPage+"&pageSize="+pageSize+"&sortOrder=LegalName%20asc&outputType=json&version=1&languageId=fr-FR&currencyId=EUR&universeIds=FOFRA%24%24ALL&securityDataPoints=SecId%7CName%7CPriceCurrency%7CTenforeId%7CLegalName%7CClosePrice%7CYield_M12%7COngoingCharge%7CCategoryName%7CAnalystRatingScale%7CStarRatingM255%7CSustainabilityRank%7CGBRReturnD1%7CGBRReturnW1%7CGBRReturnM1%7CGBRReturnM3%7CGBRReturnM6%7CGBRReturnM0%7CGBRReturnM12%7CGBRReturnM36%7CGBRReturnM60%7CGBRReturnM120%7CMaxFrontEndLoad%7COngoingCostActual%7CPerformanceFeeActual%7CTransactionFeeActual%7CMaximumExitCostAcquired%7CFeeLevel%7CManagerTenure%7CMaxDeferredLoad%7CInitialPurchase%7CFundTNAV%7CEquityStyleBox%7CBondStyleBox%7CAverageMarketCapital%7CAverageCreditQualityCode%7CEffectiveDuration%7CMorningstarRiskM255%7CAlphaM36%7CBetaM36%7CR2M36%7CStandardDeviationM36%7CSharpeM36%7CInvestorTypeRetail%7CInvestorTypeProfessional%7CInvestorTypeEligibleCounterparty%7CExpertiseBasic%7CExpertiseAdvanced%7CExpertiseInformed%7CReturnProfilePreservation%7CReturnProfileGrowth%7CReturnProfileIncome%7CReturnProfileHedging%7CReturnProfileOther%7CTrackRecordExtension&filters=CategoryId%3AIN%3A"+categorySearchCode+"&term=&subUniverseId=";
+            String url =
+                    "http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page="+currentPage+"&pageSize="+pageSize+"&sortOrder=LegalName%20asc&outputType=json&version=1&languageId=fr-FR&currencyId=EUR&universeIds=FOFRA%24%24ALL&securityDataPoints=SecId%7CName%7CPriceCurrency%7CIsin%7CTenforeId%7CLegalName%7CClosePrice%7CYield_M12%7COngoingCharge%7CCategoryName%7CAnalystRatingScale%7CStarRatingM255%7CSustainabilityRank%7CGBRReturnD1%7CGBRReturnW1%7CGBRReturnM1%7CGBRReturnM3%7CGBRReturnM6%7CGBRReturnM0%7CGBRReturnM12%7CGBRReturnM36%7CGBRReturnM60%7CGBRReturnM120%7CMaxFrontEndLoad%7COngoingCostActual%7CPerformanceFeeActual%7CTransactionFeeActual%7CMaximumExitCostAcquired%7CFeeLevel%7CManagerTenure%7CMaxDeferredLoad%7CInitialPurchase%7CFundTNAV%7CEquityStyleBox%7CBondStyleBox%7CAverageMarketCapital%7CAverageCreditQualityCode%7CEffectiveDuration%7CMorningstarRiskM255%7CAlphaM36%7CBetaM36%7CR2M36%7CStandardDeviationM36%7CSharpeM36%7CInvestorTypeRetail%7CInvestorTypeProfessional%7CInvestorTypeEligibleCounterparty%7CExpertiseBasic%7CExpertiseAdvanced%7CExpertiseInformed%7CReturnProfilePreservation%7CReturnProfileGrowth%7CReturnProfileIncome%7CReturnProfileHedging%7CReturnProfileOther%7CTrackRecordExtension&filters=CategoryId%3AIN%3A"+categorySearchCode+"&term=&subUniverseId=";
             log.fine(url);
             msResponse = Utils.getMSResponse(url);
             if (msResponse != null) {
@@ -137,10 +138,9 @@ public class CategoriesService  extends HttpServlet {
                 log.fine("Total rows=" + rows.size());
 
                 for (JsonElement element : rows) {
-                    JsonElement property = element.getAsJsonObject().get("TenforeId");
+                    JsonElement property = element.getAsJsonObject().get("Isin");
                     if (property != null) {
-                        String id = element.getAsJsonObject().get("TenforeId").getAsString();
-                        id = id.substring(id.lastIndexOf(".") + 1);
+                        String id = element.getAsJsonObject().get("Isin").getAsString();
 
                         JsonElement propertyName = element.getAsJsonObject().get("Name");
                         String name="";
