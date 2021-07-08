@@ -377,6 +377,14 @@ public class CategoriesService  extends HttpServlet {
         totalCategory+=categoriesMs.size();
         persoCategories.add(categorySectoriels);
 
+        JsonObject categoryConvertible = new JsonObject();
+        categoryConvertible.addProperty("categoryName","Convertibles International");
+        categoriesMs = new JsonArray();
+        categoriesMs.add(createMsCategory("Convertibles International",categoriesMsCodes));
+        categoryConvertible.add("categoriesMs",categoriesMs);
+        categoryConvertible.addProperty("categoryNumber",categoriesMs.size());
+        totalCategory+=categoriesMs.size();
+        persoCategories.add(categoryConvertible);
 //
 //        JsonObject categoryAutres = new JsonObject();
 //        categoryAutres.addProperty("categoryName","Autres");

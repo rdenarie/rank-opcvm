@@ -136,36 +136,36 @@ public class ExtractValueService extends HttpServlet {
   }
 
   private static boolean shouldWeKeepFund(JsonObject result) {
-    return true;
-
+//    return true;
+//
     //keep only funds for which the ticketIn is less that MAX_FACE_PRICE
-//    try {
-//      String initial = result.get(Utils.TICKET_IN_PROPERTY).getAsString();
-//      if (initial.contains("ND") || !initial.contains(" ")) {
-//        return true;
-//      }
-//
-//      double priceInEur = result.get(Utils.PRICE_EUR_PROPERTY).getAsDouble();
-//      double priceInCurrency = result.get(Utils.PRICE_PROPERTY).getAsDouble();
-//      double ratio = priceInCurrency / priceInEur;
-//
-//      double ticketInFaceValue;
-//      String[] initials = initial.split(" ");
-//      if (initials[1].equals("PART") || initials[1].equals("parts")) {
-//        ticketInFaceValue = Double.valueOf(initials[0]) * priceInEur;
-//      } else if (initials[1].equals("EUR")) {
-//        ticketInFaceValue = Double.valueOf(initials[0]);
-//      } else {
-//        ticketInFaceValue = Double.valueOf(initials[0])  / ratio;
-//      }
-//
-//      log.fine("TicketIn eur value " + ticketInFaceValue);
-//      return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
-//    } catch (Exception e) {
-//      log.severe("Problem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString());
-//      e.printStackTrace();
-//      return true;
-//    }
+    try {
+      String initial = result.get(Utils.TICKET_IN_PROPERTY).getAsString();
+      if (initial.contains("ND") || !initial.contains(" ")) {
+        return true;
+      }
+
+      double priceInEur = result.get(Utils.PRICE_EUR_PROPERTY).getAsDouble();
+      double priceInCurrency = result.get(Utils.PRICE_PROPERTY).getAsDouble();
+      double ratio = priceInCurrency / priceInEur;
+
+      double ticketInFaceValue;
+      String[] initials = initial.split(" ");
+      if (initials[1].equals("PART") || initials[1].equals("parts")) {
+        ticketInFaceValue = Double.valueOf(initials[0]) * priceInEur;
+      } else if (initials[1].equals("EUR")) {
+        ticketInFaceValue = Double.valueOf(initials[0]);
+      } else {
+        ticketInFaceValue = Double.valueOf(initials[0])  / ratio;
+      }
+
+      log.fine("TicketIn eur value=" + ticketInFaceValue+", ticketFaceValue="+initial+", ratio="+ratio);
+      return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
+    } catch (Exception e) {
+      log.severe("\n\nProblem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString()+"\n\n");
+      e.printStackTrace();
+      return true;
+    }
   }
 
   private static String extractIsin(JsonObject result, Document boursoResponse) {
@@ -233,12 +233,12 @@ public class ExtractValueService extends HttpServlet {
   private static double calculScoreFond(JsonObject fondValues, JsonObject categoryValues) {
     JsonObject fondValuesCompleted =Utils.deepCopy(fondValues);
     if (hasMissingValues(fondValuesCompleted)) {
-      log.fine("hasMissingValues");
+      //log.fine("hasMissingValues");
       int current=indexes.length;
       boolean startModification = false;
       while (current>0) {
-        log.fine("current="+current);
-        log.fine("startModification="+startModification);
+        //log.fine("current="+current);
+        //log.fine("startModification="+startModification);
         if (!startModification) {
           if (fondValuesCompleted.get(indexes[current - 1]) != null) {
             startModification = true;
@@ -378,10 +378,11 @@ public class ExtractValueService extends HttpServlet {
       }
 
     }
-
-    JsonObject fundValue = values.get("fond").getAsJsonObject();
-    hasMissingValues(fundValue);
-    result.addProperty("missingValues",hasMissingValues(fundValue));
+    if (values.get("fond")!=null) {
+      JsonObject fundValue = values.get("fond").getAsJsonObject();
+      hasMissingValues(fundValue);
+      result.addProperty("missingValues",hasMissingValues(fundValue));
+    }
     result.add("values", values);
 
   }
@@ -402,8 +403,8 @@ public class ExtractValueService extends HttpServlet {
       }
       current++;
     }
-    log.fine("FirstNullIndex="+firstNullIndex);
-    log.fine("lastValueIndex="+lastValueIndex);
+    //log.fine("FirstNullIndex="+firstNullIndex);
+    //log.fine("lastValueIndex="+lastValueIndex);
     return (firstNullIndex!= -1 && firstNullIndex<lastValueIndex);
   }
 

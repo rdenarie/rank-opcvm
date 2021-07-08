@@ -87,6 +87,8 @@
                 <li><a class="linkCategory" href="/index.jsp?category=Pays Emergents">Pays Emergents</a></li>
                 <li><a class="linkCategory" href="/index.jsp?category=Pays Européens">Pays Européens</a></li>
                 <li><a class="linkCategory" href="/index.jsp?category=Sectoriels">Sectoriels</a></li>
+                <li><a class="linkCategory" href="/index.jsp?category=Convertibles International">Convertibles
+                International</a></li>
                 <!--li><a class="linkCategory" href="/index.jsp?category=Autres">Autres</a></li-->
             </ul>
             <div id="title">
