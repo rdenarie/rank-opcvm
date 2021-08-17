@@ -330,7 +330,11 @@ public class ExtractValueService extends HttpServlet {
   }
 
   private static void extractValues(JsonObject result, Document boursoResponse) {
-    Element fundPerf = boursoResponse.selectFirst("div.c-fund-performances__table");
+    Elements fundPerfAll = boursoResponse.select("div.c-fund-performances__table");
+    Element fundPerf;
+    Element fundPerfMois = fundPerfAll.get(0);
+    Element fundPerfGlissant = fundPerfAll.get(1);
+    fundPerf = fundPerfGlissant!=null ? fundPerfGlissant : fundPerfMois;
     JsonObject values = new JsonObject();
     List<String> thead = new ArrayList<String>();
     if (fundPerf!=null) {
@@ -352,16 +356,18 @@ public class ExtractValueService extends HttpServlet {
         JsonObject listeValue = new JsonObject();
         int j=0;
         for (Element td : tds) {
-          if (!td.text().equals("-") && !td.text().equals("")) {
-            int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ","").replace("janv.","janvier"));
-            if (i == 3) {
-              //percentile
-              listeValue.addProperty(indexes[index], new Integer(td.text().replace("%", "")));
-            } else if (i == 0) {
-              //do nothing, it tr in thead
-            } else {
-              //fond ou category
-              listeValue.addProperty(indexes[index], new Double(td.text().replace("%", "")));
+          if (!thead.get(j).equalsIgnoreCase("1 semaine")) {
+            if (!td.text().equals("-") && !td.text().equals("")) {
+              int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ", "").replace("janv.", "janvier"));
+              if (i == 3) {
+                //percentile
+                listeValue.addProperty(indexes[index], Integer.valueOf(td.text().replace("%", "")));
+              } else if (i == 0) {
+                //do nothing, it tr in thead
+              } else {
+                //fond ou category
+                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "")));
+              }
             }
           }
           j++;
