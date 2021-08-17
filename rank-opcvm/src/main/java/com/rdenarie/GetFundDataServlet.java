@@ -88,6 +88,7 @@ public class GetFundDataServlet extends HttpServlet {
             array.add((String)data.getProperty(Utils.CATEGORY_MS_PROPERTY));
             array.add((Long)data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY));
             array.add((Long)data.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY));
+            array.add((Double)data.getProperty(Utils.SCORE_CATEGORY));
             arrayValues.add(array);
         }
 
