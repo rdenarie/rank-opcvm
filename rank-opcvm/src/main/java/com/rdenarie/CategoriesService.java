@@ -296,6 +296,7 @@ public class CategoriesService  extends HttpServlet {
         categoriesMs.add(createMsCategory("Obligations EUR Long Terme",categoriesMsCodes));
         categoriesMs.add(createMsCategory("Obligations Asie Haut Rendement",categoriesMsCodes));
         categoriesMs.add(createMsCategory("Obligations International Dominante EUR",categoriesMsCodes));
+        categoriesMs.add(createMsCategory("Convertibles International",categoriesMsCodes));
         categoryObligataires.add("categoriesMs",categoriesMs);
         categoryObligataires.addProperty("categoryNumber",categoriesMs.size());
         totalCategory+=categoriesMs.size();
@@ -377,14 +378,6 @@ public class CategoriesService  extends HttpServlet {
         totalCategory+=categoriesMs.size();
         persoCategories.add(categorySectoriels);
 
-        JsonObject categoryConvertible = new JsonObject();
-        categoryConvertible.addProperty("categoryName","Convertibles International");
-        categoriesMs = new JsonArray();
-        categoriesMs.add(createMsCategory("Convertibles International",categoriesMsCodes));
-        categoryConvertible.add("categoriesMs",categoriesMs);
-        categoryConvertible.addProperty("categoryNumber",categoriesMs.size());
-        totalCategory+=categoriesMs.size();
-        persoCategories.add(categoryConvertible);
 //
 //        JsonObject categoryAutres = new JsonObject();
 //        categoryAutres.addProperty("categoryName","Autres");
