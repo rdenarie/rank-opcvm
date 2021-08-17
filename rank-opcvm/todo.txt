@@ -1,3 +1,6 @@
+- faire un graphe devolution du classement de la catégorie sur la page du fond
+
+
 - repasser à la version 1.75.0 du datastore et dans utiliser
 com.google.datastore au lieu de com.google.appengine.api.datastore.*;
 
@@ -13,6 +16,30 @@ cliquer sur les liens de isin pour voir le détail)
 - ajouter une  icone pour indiquer le loading
 - afficher la page détaillée d'un fond (avec des courbes de position ndans la catégorie, ajouter le détail du calcul du score)
 - ajouter le classement des catégories
+
+
+-  erreur lors de limport
+[INFO] GCLOUD: PRÉCIS: Call url https://www.boursorama.com/recherche/LU0942195156
+[INFO] GCLOUD: août 13, 2021 5:49:36 PM com.rdenarie.Utils getBoursoResponse
+[INFO] GCLOUD: PRÉCIS: Response Code ... 200
+[INFO] GCLOUD: août 13, 2021 5:49:36 PM com.rdenarie.ExtractValueService checkLastValue
+[INFO] GCLOUD: PRÉCIS: Error when parsing date : s connu au
+[INFO] GCLOUD: java.text.ParseException: Unparseable date: "s connu au"
+[INFO] GCLOUD: 	at java.text.DateFormat.parse(DateFormat.java:366)
+[INFO] GCLOUD: 	at com.rdenarie.ExtractValueService.checkLastValue(ExtractValueService.java:125)
+[INFO] GCLOUD: 	at com.rdenarie.ExtractValueService.getValue(ExtractValueService.java:60)
+[INFO] GCLOUD: 	at com.rdenarie.StoreService.getEntitiesListToStore(StoreService.java:91)
+[INFO] GCLOUD: 	at com.rdenarie.StoreService.store(StoreService.java:77)
+[INFO] GCLOUD: 	at com.rdenarie.StoreService.doGet(StoreService.java:63)
+[INFO] GCLOUD: 	at javax.servlet.http.HttpServlet.service(HttpServlet.java:687)
+[INFO] GCLOUD: 	at javax.servlet.http.HttpServlet.service(HttpServlet.java:790)
+[INFO] GCLOUD: 	at org.eclipse.jetty.servlet.ServletHolder$NotAsync.service(ServletHolder.java:1459)
+[INFO] GCLOUD: 	at org.eclipse.jetty.servlet.ServletHolder.handle(ServletHolder.java:799)
+[INFO] GCLOUD: 	at org.eclipse.jetty.servlet.ServletHandler$ChainEnd.doFilter(ServletHandler.java:1626)
+[INFO] GCLOUD: 	at com.google.appengine.api.blobstore.dev.ServeBlobFilter.doFilter(ServeBlobFilter.java:63)
+[INFO] GCLOUD: 	at org.eclipse.jetty.servlet.FilterHolder.doFilter(FilterHolder.java:193)
+[INFO] GCLOUD: 	at org.eclipse.jetty.servlet.ServletHandler$Chain.doFilter(ServletHandler.java:1601)
+
 
 
 
