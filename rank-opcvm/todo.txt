@@ -40,6 +40,9 @@ cliquer sur les liens de isin pour voir le détail)
 [INFO] GCLOUD: 	at org.eclipse.jetty.servlet.FilterHolder.doFilter(FilterHolder.java:193)
 [INFO] GCLOUD: 	at org.eclipse.jetty.servlet.ServletHandler$Chain.doFilter(ServletHandler.java:1601)
 
+- update java11
+orsque je le fais il y a une erreur lors du déploiement de l'app
+lappli chez google semble configuré en java8
 
 
 
