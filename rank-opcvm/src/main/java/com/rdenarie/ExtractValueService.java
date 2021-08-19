@@ -65,7 +65,7 @@ public class ExtractValueService extends HttpServlet {
       String isin = extractIsin(result, doc);
       if (isin!=null) {
         log.fine("Read datas for isin="+isin);
-        extractValues(result, doc);
+        extractValues(result, doc,false);
         JsonObject values = result.getAsJsonObject("values");
         if (values.size() == 0) {
           //some opcvm have no score.
@@ -329,12 +329,12 @@ public class ExtractValueService extends HttpServlet {
     return (int) Math.round(score);
   }
 
-  private static void extractValues(JsonObject result, Document boursoResponse) {
+  private static void extractValues(JsonObject result, Document boursoResponse, boolean forceEndOfMonth) {
     Elements fundPerfAll = boursoResponse.select("div.c-fund-performances__table");
     Element fundPerf;
     Element fundPerfMois = fundPerfAll.get(0);
     Element fundPerfGlissant = fundPerfAll.get(1);
-    fundPerf = fundPerfGlissant!=null ? fundPerfGlissant : fundPerfMois;
+    fundPerf = fundPerfGlissant!=null && !forceEndOfMonth ? fundPerfGlissant : fundPerfMois;
     JsonObject values = new JsonObject();
     List<String> thead = new ArrayList<String>();
     if (fundPerf!=null) {
@@ -384,13 +384,20 @@ public class ExtractValueService extends HttpServlet {
       }
 
     }
-    if (values.get("fond")!=null) {
-      JsonObject fundValue = values.get("fond").getAsJsonObject();
-      hasMissingValues(fundValue);
-      result.addProperty("missingValues",hasMissingValues(fundValue));
-    }
-    result.add("values", values);
+    if (!forceEndOfMonth && values.getAsJsonObject("category").toString().equals("{}")) {
+      //first extract is normally on perf glissantes
+      //and here is empty
+      //so we should redo, by forcing using perf fin de mois
+      extractValues(result,boursoResponse,true);
+    } else {
 
+      if (values.get("fond") != null) {
+        JsonObject fundValue = values.get("fond").getAsJsonObject();
+        hasMissingValues(fundValue);
+        result.addProperty("missingValues", hasMissingValues(fundValue));
+      }
+      result.add("values", values);
+    }
   }
 
   private static boolean hasMissingValues(JsonObject fundValue) {
