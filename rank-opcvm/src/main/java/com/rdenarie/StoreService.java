@@ -118,7 +118,7 @@ public class StoreService extends HttpServlet {
             String dataString="";
             for (Map.Entry entry : jsonObject.entrySet()) {
 
-
+                log.info(entry.getKey().toString());
 
                 if (!(entry.getValue() instanceof JsonObject)) {
                     JsonPrimitive value = (JsonPrimitive) entry.getValue();
@@ -174,8 +174,8 @@ public class StoreService extends HttpServlet {
         for (JsonElement personalCategory : personalCategories) {
             JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
             String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
-            //if (!(categoryId.equals("Actions Pacifique hors Japon") || categoryId.equals("Actions Marchés Emergents Petites & "  + "Moy. Cap."))) continue;
 
+            if (!categoryId.equals("Asie et Pacifique")) continue;
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();

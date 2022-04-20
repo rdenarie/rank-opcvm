@@ -64,29 +64,36 @@ public class GetDataServlet extends HttpServlet {
 
             log.fine("Category is "+category);
 
+            boolean filterTop=true;
             if (category==null) {
-                queryResult = getDataByDate(currentDate,cursorString,limit);
+                queryResult = getDataByDate(currentDate, cursorString, limit);
+            } else if (category.equals("Partenaires")) {
+                queryResult = getDataPartenairesByDate(currentDate,cursorString,limit);
+                filterTop=false;
             } else {
                 queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit);
             }
             datas=queryResult.results;
 
+            if (filterTop) {
+                //filter elements which are not in top position :
+                //we keep 20% of better funds
+                //or 100 better in less than 500 in category
+                datas = datas.parallelStream()
+                             .filter(entity -> {
+                                 if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) == null
+                                     || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) == null) {
+                                     log.info("Problem with fund " + entity);
+                                     return false;
+                                 }
+                                 return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500
+                                     && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
+                                     ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= (
+                                         (Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
 
-            //filter elements which are not in top position :
-            //we keep 20% of better funds
-            //or 100 better in less than 500 in category
-            datas=datas.parallelStream()
-                    .filter(entity -> {
-                        if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY)==null || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY)==null) {
-                            log.info("Problem with fund "+entity);
-                            return false;
-                        }
-                        return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
-                                ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
-
-                    })
-                    .collect(Collectors.toList());
-
+                             })
+                             .collect(Collectors.toList());
+            }
             Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
             Collections.reverse(datas);
 //            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
@@ -193,13 +200,21 @@ public class GetDataServlet extends HttpServlet {
         return doQuery(lastDate, filter, startCursorString, limit);
     }
 
+    private QueryResult getDataPartenairesByDate(Entity lastDate, String startCursorString, int limit) {
+        FilterPredicate filterPartenaire = new Query.FilterPredicate(Utils.TYPE_PROPERTY, Query.FilterOperator.EQUAL,
+                                                                    "partenaire");
+        FilterPredicate filterBoursoMarkets = new Query.FilterPredicate(Utils.TYPE_PROPERTY, Query.FilterOperator.EQUAL,
+                                                                    "boursomarkets");
+
+        return doQuery(lastDate, Query.CompositeFilterOperator.or(filterPartenaire,filterBoursoMarkets), startCursorString, limit);
+    }
+
     private static QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
 
 
         //FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
 //        if (filter==null) {
-//            filter=rankPropertyFilter;
-//
+//            filter=rankPropertyFilter;n
 //        } else {
 //            // Use CompositeFilter to combine multiple filters
 //            CompositeFilter andFilter =

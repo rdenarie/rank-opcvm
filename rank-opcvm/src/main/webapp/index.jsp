@@ -88,6 +88,7 @@
                 <li><a class="linkCategory" href="/index.jsp?category=Pays Européens">Pays Européens</a></li>
                 <li><a class="linkCategory" href="/index.jsp?category=Sectoriels">Sectoriels</a></li>
                 <!--li><a class="linkCategory" href="/index.jsp?category=Autres">Autres</a></li-->
+                <li><a class="linkCategory" href="/index.jsp?category=Partenaires">Partenaires</a></liP
             </ul>
             <div id="title">
                 <span id="previousDate" style="display:none"><button id="previousButton"><i class="material-icons">keyboard_arrow_left</i></button></span>

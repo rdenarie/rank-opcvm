@@ -5,6 +5,7 @@ import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
+import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonPrimitive;
 import org.jsoup.Jsoup;
@@ -80,6 +81,7 @@ public class ExtractValueService extends HttpServlet {
         result.addProperty("scorePercentile", scorePercentile);
 
         extractName(result, doc);
+        extractType(result,doc);
         extractMSRating(result, doc);
 
         extractCostsConditions(result, doc);
@@ -173,6 +175,23 @@ public class ExtractValueService extends HttpServlet {
     if (name==null) return null;
     result.addProperty("id",name.text().split(" -")[0]);
     return name.text().split(" -")[0];
+  }
+
+  private static String extractType(JsonObject result, Document boursoResponse) {
+    Element type = boursoResponse.selectFirst("div.c-faceplate__offer-logo");
+    if (type==null) {
+      result.addProperty("type", "");
+      return "";
+    }
+    String typeFond="";
+    String typeClass = type.attr("title");
+    if (typeClass != null && typeClass.contains("partenaire")) {
+      typeFond="partenaire";
+    } else if (typeClass != null && typeClass.contains("Boursomarkets")) {
+      typeFond="boursomarkets";
+    }
+    result.addProperty("type",typeFond);
+    return typeFond;
   }
 
   private static void storeException(String id, Exception e) {
