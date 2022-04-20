@@ -174,13 +174,15 @@ public class StoreService extends HttpServlet {
         for (JsonElement personalCategory : personalCategories) {
             JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
             String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
-            //if (!categoryId.equals("Convertibles International")) continue;
+            //if (!(categoryId.equals("Actions Pacifique hors Japon") || categoryId.equals("Actions Marchés Emergents Petites & "  + "Moy. Cap."))) continue;
 
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
-                log.fine(msCategory.toString());
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
-                //if (!categoryMsId.equals("Actions Chine")) continue;
+                //if (!(categoryMsId.equals("Actions Pacifique hors Japon") || categoryMsId.equals("Actions Marchés Emergents "
+                //                                                                                      + "Petites & "  + "Moy. "
+                //    + "Cap."))) continue;
+                //log.info("categoryMsId="+categoryMsId);
 
                 Queue queue;
                 if (SystemProperty.environment.value() == SystemProperty.Environment.Value.Production) {

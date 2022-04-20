@@ -89,6 +89,11 @@ public class GetFundDataServlet extends HttpServlet {
             array.add((Long)data.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY));
             array.add((Long)data.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY));
             array.add((Double)data.getProperty(Utils.SCORE_CATEGORY));
+            array.add((Double)data.getProperty(Utils.SCORE_FOND_PROPERTY));
+            //array.add(data.getProperty("values").toString());
+            //String missingValues = data.getProperty("missingValues") != null ? data.getProperty("missingValues").toString() :
+            // "";
+            //array.add(missingValues);
             arrayValues.add(array);
         }
 

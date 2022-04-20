@@ -232,6 +232,8 @@ public class ExtractValueService extends HttpServlet {
 
   private static double calculScoreFond(JsonObject fondValues, JsonObject categoryValues) {
     JsonObject fondValuesCompleted =Utils.deepCopy(fondValues);
+    //s'il manque des valeurs, on va completer pour ne pas avoir de trous (apres cela, toutes les valeurs entre la premiere et
+    // la derniere seront remplies
     if (hasMissingValues(fondValuesCompleted)) {
       //log.fine("hasMissingValues");
       int current=indexes.length;
@@ -252,6 +254,8 @@ public class ExtractValueService extends HttpServlet {
       }
     }
     fondValues=sort(fondValuesCompleted);
+
+    log.fine("values for calculating "+fondValues);
 
     double score;
     int current = 1;
@@ -331,14 +335,13 @@ public class ExtractValueService extends HttpServlet {
 
   private static void extractValues(JsonObject result, Document boursoResponse, boolean forceEndOfMonth) {
     Elements fundPerfAll = boursoResponse.select("div.c-fund-performances__table");
-    Element fundPerf;
     Element fundPerfMois = fundPerfAll.get(0);
     Element fundPerfGlissant = fundPerfAll.get(1);
-    fundPerf = fundPerfGlissant!=null && !forceEndOfMonth ? fundPerfGlissant : fundPerfMois;
-    JsonObject values = new JsonObject();
-    List<String> thead = new ArrayList<String>();
-    if (fundPerf!=null) {
-      Elements trs = fundPerf.select("tr.c-table__row");
+    JsonObject valuesGlissantes = new JsonObject();
+    JsonObject valuesFinDeMois = new JsonObject();
+    if (fundPerfGlissant!=null) {
+      List<String> thead = new ArrayList<String>();
+      Elements trs = fundPerfGlissant.select("tr.c-table__row");
       int i=0;
       for (Element tr: trs) {
         if (i==0) {
@@ -374,30 +377,77 @@ public class ExtractValueService extends HttpServlet {
         }
         if (i==1) {
 
-          values.add("fond", listeValue);
+          valuesGlissantes.add("fond", listeValue);
         } else if (i==2) {
-          values.add("category", listeValue);
+          valuesGlissantes.add("category", listeValue);
         }else if (i==3) {
-          values.add("percentile", listeValue);
+          valuesGlissantes.add("percentile", listeValue);
+        }
+        i++;
+      }
+    }
+
+    if (fundPerfMois!=null) {
+      List<String> thead = new ArrayList<String>();
+      Elements trs = fundPerfMois.select("tr.c-table__row");
+      int i=0;
+      for (Element tr: trs) {
+        if (i==0) {
+          //thead
+          Elements tds=tr.select("th.c-table__title");
+          for (Element td : tds) {
+            if (!td.text().equals("")) {
+              thead.add(td.text());
+            }
+          }
+          i++;
+          continue;
+        }
+        Elements tds=tr.select("td.c-table__cell");
+        JsonObject listeValue = new JsonObject();
+        int j=0;
+        for (Element td : tds) {
+          if (!thead.get(j).equalsIgnoreCase("1 semaine")) {
+            if (!td.text().equals("-") && !td.text().equals("")) {
+              int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ", "").replace("janv.", "janvier"));
+              if (i == 3) {
+                //percentile
+                listeValue.addProperty(indexes[index], Integer.valueOf(td.text().replace("%", "")));
+              } else if (i == 0) {
+                //do nothing, it tr in thead
+              } else {
+                //fond ou category
+                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "")));
+              }
+            }
+          }
+          j++;
+        }
+        if (i==1) {
+
+          valuesFinDeMois.add("fond", listeValue);
+        } else if (i==2) {
+          valuesFinDeMois.add("category", listeValue);
+        }else if (i==3) {
+          valuesFinDeMois.add("percentile", listeValue);
         }
         i++;
       }
 
     }
-    if (!forceEndOfMonth && values.getAsJsonObject("category").toString().equals("{}")) {
-      //first extract is normally on perf glissantes
-      //and here is empty
-      //so we should redo, by forcing using perf fin de mois
-      extractValues(result,boursoResponse,true);
-    } else {
 
-      if (values.get("fond") != null) {
-        JsonObject fundValue = values.get("fond").getAsJsonObject();
-        hasMissingValues(fundValue);
-        result.addProperty("missingValues", hasMissingValues(fundValue));
-      }
-      result.add("values", values);
-    }
+    //on garde le tableau de valeurs qui a le plus de valeurs
+
+//    if (valuesFinDeMois.getAsJsonObject("fond").size()>valuesGlissantes.getAsJsonObject("fond").size()) {
+//      result.add("values", valuesFinDeMois);
+//    } else {
+//      result.add("values", valuesGlissantes);
+//
+//    }
+
+    // on reste les valeurs fin de mois
+    result.add("values", valuesFinDeMois);
+
   }
 
   private static boolean hasMissingValues(JsonObject fundValue) {
