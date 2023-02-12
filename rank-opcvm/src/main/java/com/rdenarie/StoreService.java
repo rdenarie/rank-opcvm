@@ -175,7 +175,7 @@ public class StoreService extends HttpServlet {
             JsonArray msCategories = personalCategory.getAsJsonObject().get("categoriesMs").getAsJsonArray();
             String categoryId=personalCategory.getAsJsonObject().get("categoryName").getAsString();
 
-            if (!categoryId.equals("Asie et Pacifique")) continue;
+            //if (!categoryId.equals("Asie et Pacifique")) continue;
             int currentMs=1;
             for (JsonElement msCategory : msCategories) {
                 String categoryMsId=msCategory.getAsJsonObject().get("categoryName").getAsString();
