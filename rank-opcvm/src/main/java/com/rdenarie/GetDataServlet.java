@@ -1,15 +1,11 @@
 package com.rdenarie;
 
 
-import com.google.api.client.json.Json;
 import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.*;
-import com.google.cloud.datastore.Datastore;
-import com.google.cloud.datastore.DatastoreOptions;
-import com.google.cloud.datastore.ProjectionEntity;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-
+import jdk.jshell.execution.Util;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -45,58 +41,24 @@ public class GetDataServlet extends HttpServlet {
             currentDate=getDateFromParameter(new Date(new Long(dateParameter)));
         }
 
+        boolean groupDataByCategory = false;
+        if(request.getParameter("groupByCategory") !=null) {
+            groupDataByCategory=Boolean.parseBoolean(request.getParameter("groupByCategory"));
+        }
 
         String category=request.getParameter("category");
 
         if (currentDate==null) {
             response.sendError(HttpServletResponse.SC_NOT_FOUND);
         } else {
-            List<Entity> datas;
             JsonObject jsonData = new JsonObject();
             addColumnNames(jsonData);
             JsonArray arrayValues = new JsonArray();
 
             String cursorString=request.getParameter("startCursorString");
-
             int limit=request.getParameter("displayAll") != null ? (request.getParameter("displayAll").equals("true") ? -1 : LIMIT) : LIMIT;
 
-            QueryResult queryResult;
-
-            log.fine("Category is "+category);
-
-            boolean filterTop=true;
-            if (category==null) {
-                queryResult = getDataByDate(currentDate, cursorString, limit);
-            } else if (category.equals("Partenaires")) {
-                queryResult = getDataPartenairesByDate(currentDate,cursorString,limit);
-                filterTop=false;
-            } else {
-                queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit);
-            }
-            datas=queryResult.results;
-
-            if (filterTop) {
-                //filter elements which are not in top position :
-                //we keep 20% of better funds
-                //or 100 better in less than 500 in category
-                datas = datas.parallelStream()
-                             .filter(entity -> {
-                                 if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) == null
-                                     || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) == null) {
-                                     log.info("Problem with fund " + entity);
-                                     return false;
-                                 }
-                                 return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500
-                                     && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
-                                     ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= (
-                                         (Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
-
-                             })
-                             .collect(Collectors.toList());
-            }
-            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
-            Collections.reverse(datas);
-//            datas.forEach(entity -> log.fine(entity.getProperty(Utils.NAME_PROPERTY)+"----"+entity.getProperty(Utils.CATEGORY_PERSO_PROPERTY)));
+            List<Entity> datas = getDatasEntity(cursorString,limit, category, currentDate, groupDataByCategory);
 
             JsonObject json;
             for (Entity data : datas) {
@@ -140,11 +102,63 @@ public class GetDataServlet extends HttpServlet {
             }
 
             result.add("data", jsonData);
-            result.addProperty("cursorString",queryResult.cursor);
+            result.addProperty("cursorString",cursorString);
             response.setContentType("application/json");
             response.setCharacterEncoding("UTF-8");
             response.getWriter().write(result.toString());
         }
+    }
+
+    public static List<Entity> getDatasEntity(String cursorString, int limit, String category, Entity currentDate, boolean groupByCategory) {
+
+        log.fine(category);
+        List<Entity> datas;
+
+        QueryResult queryResult;
+
+        log.fine("Category is "+category);
+
+        boolean filterTop=true;
+        if (category==null) {
+            queryResult = getDataByDate(currentDate, cursorString, limit,groupByCategory);
+        } else if (category.equals("Partenaires")) {
+            queryResult = getDataPartenairesByDate(currentDate,cursorString,limit,groupByCategory);
+            filterTop=false;
+        } else {
+            queryResult = getDataByDateAndCategory(currentDate,category,cursorString,limit,groupByCategory);
+        }
+        datas=queryResult.results;
+
+        if (filterTop) {
+            //filter elements which are not in top position :
+            //we keep 20% of better funds
+            //or 100 better in less than 500 in category
+            datas = datas.parallelStream()
+                         .filter(entity -> {
+                             if (entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) == null
+                                 || entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) == null) {
+                                 log.info("Problem with fund " + entity);
+                                 return false;
+                             }
+                             return ((Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) <= 500
+                                 && (Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= 100) ||
+                                 ((Long) entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY) <= (
+                                     (Long) entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY) * 0.2));
+
+                         })
+                         .collect(Collectors.toList());
+        }
+        if (groupByCategory) {
+            Comparator comparator = Comparator.comparingDouble(e -> Double.parseDouble(((Entity)e).getProperty(Utils.SCORE_CATEGORY).toString()))
+                                                      .thenComparingDouble(e -> Double.parseDouble(((Entity)e).getProperty(Utils.SCORE_FOND_PROPERTY).toString()));
+            Collections.sort(datas, comparator);
+            Collections.reverse(datas);
+        } else {
+            Collections.sort(datas, Comparator.comparingDouble(p -> (double)p.getProperty(Utils.SCORE_FOND_PROPERTY)));
+            Collections.reverse(datas);
+        }
+        cursorString = queryResult.cursor;
+        return datas;
     }
 
     public static Entity getDateFromParameter(Date date) {
@@ -193,23 +207,23 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    private QueryResult getDataByDateAndCategory(Entity lastDate, String category, String startCursorString, int limit) {
+    private static QueryResult getDataByDateAndCategory(Entity lastDate, String category, String startCursorString, int limit, boolean groupByCategory) {
         FilterPredicate filter = new Query.FilterPredicate(Utils.CATEGORY_PERSO_PROPERTY, Query.FilterOperator.EQUAL, category);
 
         log.fine("getDataByDateAndCategory : "+category);
-        return doQuery(lastDate, filter, startCursorString, limit);
+        return doQuery(lastDate, filter, startCursorString, limit, groupByCategory);
     }
 
-    private QueryResult getDataPartenairesByDate(Entity lastDate, String startCursorString, int limit) {
+    private static QueryResult getDataPartenairesByDate(Entity lastDate, String startCursorString, int limit, boolean groupByCategory) {
         FilterPredicate filterPartenaire = new Query.FilterPredicate(Utils.TYPE_PROPERTY, Query.FilterOperator.EQUAL,
                                                                     "partenaire");
         FilterPredicate filterBoursoMarkets = new Query.FilterPredicate(Utils.TYPE_PROPERTY, Query.FilterOperator.EQUAL,
                                                                     "boursomarkets");
 
-        return doQuery(lastDate, Query.CompositeFilterOperator.or(filterPartenaire,filterBoursoMarkets), startCursorString, limit);
+        return doQuery(lastDate, Query.CompositeFilterOperator.or(filterPartenaire,filterBoursoMarkets), startCursorString, limit,groupByCategory);
     }
 
-    private static QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit) {
+    private static QueryResult doQuery(Entity lastDate, Filter filter, String startCursorString, int limit, boolean groupByCategory) {
 
 
         //FilterPredicate rankPropertyFilter = new FilterPredicate(Utils.RANK_IN_CATEGORY_PROPERTY, FilterOperator.LESS_THAN_OR_EQUAL, 100);
@@ -392,7 +406,7 @@ public class GetDataServlet extends HttpServlet {
         return result;
     }
 
-    private void addColumnNames(JsonObject result) {
+    private static void addColumnNames(JsonObject result) {
         JsonArray columns=new JsonArray();
         columns.add(createJsonObjectColumnName(Utils.RANK_IN_CATEGORY_PROPERTY,"Position","","string"));
         columns.add(createJsonObjectColumnName(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY,"Sur","","string"));
@@ -420,7 +434,7 @@ public class GetDataServlet extends HttpServlet {
         result.add("cols",columns);
     }
 
-    private JsonObject createJsonObjectColumnName(String id, String label, String pattern, String type) {
+    private static JsonObject createJsonObjectColumnName(String id, String label, String pattern, String type) {
         JsonObject result = new JsonObject();
         result.addProperty("id",id);
         result.addProperty("label",label);
@@ -452,8 +466,8 @@ public class GetDataServlet extends HttpServlet {
 
     }
 
-    public static QueryResult getDataByDate(Entity date, String startCursorString,int limit) {
-        return doQuery(date,null, startCursorString, limit);
+    public static QueryResult getDataByDate(Entity date, String startCursorString,int limit, boolean groupByCategory) {
+        return doQuery(date,null, startCursorString, limit, groupByCategory);
     }
 
 

@@ -12,4 +12,9 @@
         <property name="appengine.api.urlfetch.defaultDeadline" value="20"/>
     </system-properties>
     <url-stream-handler>urlfetch</url-stream-handler>
+    <resource-files>
+        <include path="/**.xls" />
+        <include path="/jsLocal/*.js" />
+    </resource-files>
+
 </appengine-web-app>
