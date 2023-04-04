@@ -33,9 +33,7 @@ public class CategoriesService  extends HttpServlet {
 
 
         response.setContentType("text/html");
-        response.getWriter().println(getIdFonds().toString());
-//        response.setContentType("application/json");
-//        response.getWriter().println(getCategories().toString());
+        response.getWriter().println(getIdFonds());
     }
 
     public static List<String> getIdFonds() {
@@ -90,7 +88,6 @@ public class CategoriesService  extends HttpServlet {
             if (boursoResponse != null) {
                 Document doc = Jsoup.parse(boursoResponse);
                 Elements links = doc.selectFirst("div.c-tabs__content.is-active").select("a[href^=/bourse/opcvm/cours/]");
-                //System.out.println(doc.selectFirst("div.c-tabs__content.is-active").html());
                 for (Element link : links) {
                     String[] splitted = link.attr("href").split("/");
                     result.add(splitted[splitted.length - 1]+"#"+personalCategoryName);
@@ -99,11 +96,10 @@ public class CategoriesService  extends HttpServlet {
                 if (pageNumberElement==null) {
                     nextPage=null;
                 } else {
-                    int pageNumber = new Integer(pageNumberElement.text()).intValue();
+                    int pageNumber = Integer.parseInt(pageNumberElement.text());
                     pageNumber++;
                     nextPage = doc.selectFirst("a[href^=/bourse/opcvm/recherche/page-" + pageNumber + "]");
                     if (nextPage != null) {
-                        System.out.println("Goto Page " + pageNumber);
                         url = nextPage.attr("href");
                     }
                 }
@@ -617,7 +613,7 @@ public class CategoriesService  extends HttpServlet {
             categoryMs.addProperty("categorySearchCode", categoriesMsCodes.get(categoryName));
             return categoryMs;
         } else {
-            System.out.println("Category "+categoryName+" not founded");
+            log.severe("Category "+categoryName+" not founded");
             return null;
         }
     }

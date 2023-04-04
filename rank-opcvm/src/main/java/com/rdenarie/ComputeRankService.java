@@ -104,7 +104,7 @@ public class ComputeRankService extends HttpServlet {
         String startCursorString=null;
         Map<String, List<Entity>> entitiesByCategory = new HashMap<>();
         do {
-            FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
+            FetchOptions fetchOptions;
             fetchOptions = FetchOptions.Builder.withLimit(limit);
             if (startCursorString != null && !startCursorString.equals("")) {
                 fetchOptions.startCursor(Cursor.fromWebSafeString(startCursorString)); // Where we left off

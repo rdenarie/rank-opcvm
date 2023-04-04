@@ -8,12 +8,7 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
-import com.google.appengine.api.datastore.Query.Filter;
-import com.google.appengine.api.datastore.Query.FilterOperator;
-import com.google.appengine.api.datastore.Query.FilterPredicate;
 import com.google.appengine.api.datastore.QueryResultIterator;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonObject;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -33,7 +28,6 @@ import java.util.stream.Collectors;
 @WebServlet(name = "DeleteDataServlet", value = "/deleteDataServlet")
 public class DeleteDataServlet extends HttpServlet {
     private static final Logger log = Logger.getLogger(DeleteDataServlet.class.getName());
-    private static final int LIMIT = 50;
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -44,10 +38,10 @@ public class DeleteDataServlet extends HttpServlet {
         String dateParameter=request.getParameter("date");
         Entity currentDate;
         if (dateParameter!=null) {
-            currentDate=GetDataServlet.getDateFromParameter(new Date(new Long(dateParameter)));
+            currentDate=GetDataServlet.getDateFromParameter(new Date(Long.parseLong(dateParameter)));
             DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
 
-            FetchOptions fetchOptions = FetchOptions.Builder.withDefaults();
+            FetchOptions fetchOptions;
             int limit=1000;
             int currentBatchNbResult=0;
             String startCursorString=null;
@@ -68,7 +62,7 @@ public class DeleteDataServlet extends HttpServlet {
                 if (cursor != null && currentBatchNbResult == limit) {         // Are we paging? Save Cursor
                     startCursorString = cursor.toWebSafeString();               // Cursors are WebSafe
                 }
-                datastore.delete(resultEntities.stream().map(entity -> entity.getKey()).collect(Collectors.toList()));
+                datastore.delete(resultEntities.stream().map(Entity::getKey).collect(Collectors.toList()));
                 totalDeleted=totalDeleted+currentBatchNbResult;
                 log.fine(totalDeleted+" elements deleted.");
             } while (currentBatchNbResult==limit);
@@ -76,7 +70,6 @@ public class DeleteDataServlet extends HttpServlet {
             datastore.delete(currentDate.getKey());
             response.getWriter().println("Date "+dateParameter+" deleted.");
 
-        } else {
         }
     }
 

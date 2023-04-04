@@ -5,7 +5,6 @@ import com.google.appengine.api.datastore.*;
 import com.google.appengine.api.datastore.Query.*;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
-import jdk.jshell.execution.Util;
 
 import javax.servlet.annotation.WebServlet;
 import javax.servlet.http.HttpServlet;
@@ -38,7 +37,7 @@ public class GetDataServlet extends HttpServlet {
         if (dateParameter==null) {
             currentDate = getLastDate();
         } else {
-            currentDate=getDateFromParameter(new Date(new Long(dateParameter)));
+            currentDate=getDateFromParameter(new Date(Long.parseLong(dateParameter)));
         }
 
         boolean groupDataByCategory = false;
@@ -177,7 +176,7 @@ public class GetDataServlet extends HttpServlet {
 //
 //        }
 //        return null;
-        if (entities!=null && entities.size()>0) return entities.get(0);
+        if (entities!=null && !entities.isEmpty()) return entities.get(0);
         else return null;
 
     }
@@ -190,7 +189,7 @@ public class GetDataServlet extends HttpServlet {
 
         PreparedQuery pq = datastore.prepare(q);
         List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
-        if (entities!=null && entities.size()>0) return entities.get(0);
+        if (entities!=null && !entities.isEmpty()) return entities.get(0);
         else return null;
 
     }
@@ -202,7 +201,7 @@ public class GetDataServlet extends HttpServlet {
 
         PreparedQuery pq = datastore.prepare(q);
         List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
-        if (entities!=null && entities.size()>0) return entities.get(0);
+        if (entities!=null && !entities.isEmpty()) return entities.get(0);
         else return null;
 
     }
@@ -263,7 +262,6 @@ public class GetDataServlet extends HttpServlet {
             resultList.add(resultsIterator.next());
         }
         Cursor cursor = resultsIterator.getCursor();
-        String cursorString = null;
         if (cursor != null && limit>-1 && resultList.size() == LIMIT) {         // Are we paging? Save Cursor
             startCursorString = cursor.toWebSafeString();               // Cursors are WebSafe
         }
@@ -402,7 +400,7 @@ public class GetDataServlet extends HttpServlet {
     }
     public static JsonObject createJsonObjectValueAsFloat(String value) {
         JsonObject result = new JsonObject();
-        result.addProperty("v",new Double(value));
+        result.addProperty("v",Double.parseDouble(value));
         return result;
     }
 

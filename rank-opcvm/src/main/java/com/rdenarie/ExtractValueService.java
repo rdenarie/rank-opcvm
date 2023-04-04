@@ -3,11 +3,7 @@ package com.rdenarie;
 import com.google.appengine.api.datastore.DatastoreService;
 import com.google.appengine.api.datastore.DatastoreServiceFactory;
 import com.google.appengine.api.datastore.Entity;
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonNull;
 import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -26,7 +22,6 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
-import java.util.Map;
 import java.util.logging.Logger;
 
 @WebServlet(name = "ExtractValueService", value = "/extractValueService")
@@ -55,7 +50,9 @@ public class ExtractValueService extends HttpServlet {
 
     try {
       String boursoResponse = isBoursoId ? getFondValueOnBoursoByBoursoId(id ) : getFondValueOnBoursoByIsin(id);
-
+      if (boursoResponse==null) {
+        return null;
+      }
       Document doc = Jsoup.parse(boursoResponse);
 
       if (!checkLastValue(doc)) {
@@ -128,9 +125,9 @@ public class ExtractValueService extends HttpServlet {
       Instant now = Instant.now();
 
       return !instant.isBefore(now.minus(Period.ofDays(365)));
-    } catch (ParseException e) {
-      log.fine("Error when parsing date : "+date);
-      e.printStackTrace();
+    } catch (ParseException ignored) {
+      //if parseException, return true, we do not want to ignore
+
     }
     return true;
 
@@ -221,8 +218,8 @@ public class ExtractValueService extends HttpServlet {
       }
       String val = fondValues.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
-        somme+=new Double(val);
-        lastValue = new Double(val);
+        somme+=Double.parseDouble(val);
+        lastValue = Double.parseDouble(val);
         nbElement++;
       }
       current++;
@@ -254,12 +251,9 @@ public class ExtractValueService extends HttpServlet {
     //s'il manque des valeurs, on va completer pour ne pas avoir de trous (apres cela, toutes les valeurs entre la premiere et
     // la derniere seront remplies
     if (hasMissingValues(fondValuesCompleted)) {
-      //log.fine("hasMissingValues");
       int current=indexes.length;
       boolean startModification = false;
       while (current>0) {
-        //log.fine("current="+current);
-        //log.fine("startModification="+startModification);
         if (!startModification) {
           if (fondValuesCompleted.get(indexes[current - 1]) != null) {
             startModification = true;
@@ -288,8 +282,8 @@ public class ExtractValueService extends HttpServlet {
       }
       String val = fondValues.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
-        somme+=new Double(val);
-        lastValue = new Double(val);
+        somme+=Double.parseDouble(val);
+        lastValue =Double.parseDouble(val);
         nbElement++;
       }
       current++;
@@ -334,7 +328,7 @@ public class ExtractValueService extends HttpServlet {
     while (current<=object.size()) {
       String val = object.get(indexes[current-1]).getAsString();
       if (!val.equals("")) {
-        somme+=new Double(val);
+        somme+=Double.parseDouble(val);
         nbElement++;
       }
       current++;
@@ -359,7 +353,7 @@ public class ExtractValueService extends HttpServlet {
     JsonObject valuesGlissantes = new JsonObject();
     JsonObject valuesFinDeMois = new JsonObject();
     if (fundPerfGlissant!=null) {
-      List<String> thead = new ArrayList<String>();
+      List<String> thead = new ArrayList<>();
       Elements trs = fundPerfGlissant.select("tr.c-table__row");
       int i=0;
       for (Element tr: trs) {
@@ -407,7 +401,7 @@ public class ExtractValueService extends HttpServlet {
     }
 
     if (fundPerfMois!=null) {
-      List<String> thead = new ArrayList<String>();
+      List<String> thead = new ArrayList<>();
       Elements trs = fundPerfMois.select("tr.c-table__row");
       int i=0;
       for (Element tr: trs) {
@@ -485,8 +479,6 @@ public class ExtractValueService extends HttpServlet {
       }
       current++;
     }
-    //log.fine("FirstNullIndex="+firstNullIndex);
-    //log.fine("lastValueIndex="+lastValueIndex);
     return (firstNullIndex!= -1 && firstNullIndex<lastValueIndex);
   }
 
@@ -589,23 +581,23 @@ public class ExtractValueService extends HttpServlet {
   private static void extractFacePrice(JsonObject result, Document doc) {
     Element facePrice = doc.select("div.c-faceplate__price").first();
     Element price = facePrice.selectFirst("span");
-    result.addProperty(Utils.PRICE_PROPERTY,new Double(price.text().replace(" ","")));
+    result.addProperty(Utils.PRICE_PROPERTY,Double.parseDouble(price.text().replace(" ","")));
 
     Element currentcy = facePrice.select("span").last();
     result.addProperty(Utils.CURRENCY_PROPERTY,currentcy.text());
 
     if (currentcy.text().equals("EUR")) {
-      result.addProperty(Utils.PRICE_EUR_PROPERTY,new Double(price.text().replace(" ","")));
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(price.text().replace(" ","")));
     } else {
       Element facePriceEur = doc.select("div.c-faceplate__indicative").first();
       Element priceEur = facePriceEur.selectFirst("span.c-faceplate__indicative-value");
-      result.addProperty(Utils.PRICE_EUR_PROPERTY,new Double(priceEur.text().replace("EUR","").replace(" ","")));
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(priceEur.text().replace("EUR","").replace(" ","")));
     }
 
 
     Element faceQuotation = doc.select("div.c-faceplate__quotation").get(2);
     String actif = faceQuotation.select("li.c-list-info__item").get(0).text().split("/")[1].replace(" ","");
-    result.addProperty(Utils.ACTIF_PROPERTY,new Double(actif));
+    result.addProperty(Utils.ACTIF_PROPERTY,Double.parseDouble(actif));
 
 
 

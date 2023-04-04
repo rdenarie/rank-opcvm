@@ -8,6 +8,7 @@ import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
 
 import javax.activation.DataHandler;
+import javax.mail.BodyPart;
 import javax.mail.Message;
 import javax.mail.MessagingException;
 import javax.mail.Multipart;
@@ -82,8 +83,8 @@ public class MailService extends HttpServlet {
             result += "Elements avec probleme ("+lastCal.get(Calendar.DAY_OF_MONTH) + "/" + (lastCal.get(Calendar.MONTH) + 1) +
                     "/" + lastCal.get(Calendar.YEAR)+") : "+nbElementWithProblem+"\n";
 
-
-            msg.setText(result);
+            BodyPart messageBodyPart = new MimeBodyPart();
+            messageBodyPart.setText("result");
 
             byte[] report = ReportService.generateReport();
 
@@ -94,6 +95,7 @@ public class MailService extends HttpServlet {
             MimeBodyPart attachment = new MimeBodyPart();
             attachment.setDataHandler(new DataHandler(new ByteArrayDataSource(report, "application/vnd.ms-excel")));
             attachment.setFileName("report.xlsx");
+            mp.addBodyPart(messageBodyPart);
             mp.addBodyPart(attachment);
             msg.setContent(mp);
 
