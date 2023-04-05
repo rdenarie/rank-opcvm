@@ -84,17 +84,17 @@ public class MailService extends HttpServlet {
                     "/" + lastCal.get(Calendar.YEAR)+") : "+nbElementWithProblem+"\n";
 
             BodyPart messageBodyPart = new MimeBodyPart();
-            messageBodyPart.setText("result");
+            messageBodyPart.setText(result);
 
             byte[] report = ReportService.generateReport();
 
-
-            Multipart mp = new MimeMultipart();
 
             //Add attachments
             MimeBodyPart attachment = new MimeBodyPart();
             attachment.setDataHandler(new DataHandler(new ByteArrayDataSource(report, "application/vnd.ms-excel")));
             attachment.setFileName("report.xlsx");
+
+            Multipart mp = new MimeMultipart();
             mp.addBodyPart(messageBodyPart);
             mp.addBodyPart(attachment);
             msg.setContent(mp);
