@@ -31,6 +31,11 @@ detailed instructions.
 
     mvn verify
 
+## Deploy cron 
+
+    gcloud app deploy cron.yaml
+
+
 As you add / modify the source code (`src/main/java/...`) it's very useful to add
 [unit testing](https://cloud.google.com/appengine/docs/java/tools/localunittesting)
 to (`src/main/test/...`).  The following resources are quite useful:

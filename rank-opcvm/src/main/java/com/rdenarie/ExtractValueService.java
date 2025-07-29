@@ -86,13 +86,6 @@ public class ExtractValueService extends HttpServlet {
         extractGerant(result, doc);
         result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
 
-
-
-
-
-
-
-
         if (!shouldWeKeepFund(result)) {
           //do not take in accountfund which are too costly
           return null;
@@ -382,7 +375,7 @@ public class ExtractValueService extends HttpServlet {
                 //do nothing, it tr in thead
               } else {
                 //fond ou category
-                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "")));
+                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "").replace(",",".")));
               }
             }
           }
@@ -430,7 +423,7 @@ public class ExtractValueService extends HttpServlet {
                 //do nothing, it tr in thead
               } else {
                 //fond ou category
-                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "")));
+                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "").replace(",",".")));
               }
             }
           }
@@ -496,7 +489,7 @@ public class ExtractValueService extends HttpServlet {
 
 
   public static String getFondValueOnBoursoByIsin(String id) throws IOException {
-    return Utils.getBoursoResponse("https://www.boursorama.com/recherche/"+id);
+    return Utils.getBoursoResponse("https://www.boursorama.com/recherche/?query="+id+"&searchId=");
 
   }
   public static String getFondValueOnBoursoByBoursoId(String id) throws IOException {
@@ -581,23 +574,23 @@ public class ExtractValueService extends HttpServlet {
   private static void extractFacePrice(JsonObject result, Document doc) {
     Element facePrice = doc.select("div.c-faceplate__price").first();
     Element price = facePrice.selectFirst("span");
-    result.addProperty(Utils.PRICE_PROPERTY,Double.parseDouble(price.text().replace(" ","")));
+    result.addProperty(Utils.PRICE_PROPERTY,Double.parseDouble(price.text().replace(" ","").replace(",",".")));
 
     Element currentcy = facePrice.select("span").last();
     result.addProperty(Utils.CURRENCY_PROPERTY,currentcy.text());
 
     if (currentcy.text().equals("EUR")) {
-      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(price.text().replace(" ","")));
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(price.text().replace(" ","").replace(",",".")));
     } else {
       Element facePriceEur = doc.select("div.c-faceplate__indicative").first();
       Element priceEur = facePriceEur.selectFirst("span.c-faceplate__indicative-value");
-      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(priceEur.text().replace("EUR","").replace(" ","")));
+      result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(priceEur.text().replace("EUR","").replace(" ","").replace(",",".")));
     }
 
 
     Element faceQuotation = doc.select("div.c-faceplate__quotation").get(2);
     String actif = faceQuotation.select("li.c-list-info__item").get(0).text().split("/")[1].replace(" ","");
-    result.addProperty(Utils.ACTIF_PROPERTY,Double.parseDouble(actif));
+    result.addProperty(Utils.ACTIF_PROPERTY,Double.parseDouble(actif.replace(",",".")));
 
 
 

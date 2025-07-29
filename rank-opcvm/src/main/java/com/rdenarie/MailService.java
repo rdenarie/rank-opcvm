@@ -6,6 +6,9 @@ import com.google.appengine.api.datastore.Entity;
 import com.google.appengine.api.datastore.FetchOptions;
 import com.google.appengine.api.datastore.PreparedQuery;
 import com.google.appengine.api.datastore.Query;
+import com.google.appengine.repackaged.org.joda.time.DateTimeField;
+import com.google.appengine.repackaged.org.joda.time.DateTimeFieldType;
+import com.google.appengine.repackaged.org.joda.time.Instant;
 
 import javax.activation.DataHandler;
 import javax.mail.BodyPart;
@@ -28,12 +31,15 @@ import java.io.IOException;
 import java.util.Calendar;
 import java.util.Date;
 import java.util.Properties;
+import java.util.logging.Logger;
 
 /**
  * Created by Romain Dénarié (romain.denarie@exoplatform.com) on 06/08/18.
  */
 @WebServlet(name = "MailService", value = "/mailService")
 public class MailService extends HttpServlet {
+
+    private static final Logger log = Logger.getLogger(MailService.class.getName());
 
     @Override
     public void doGet(HttpServletRequest request, HttpServletResponse response)
@@ -92,8 +98,19 @@ public class MailService extends HttpServlet {
             //Add attachments
             MimeBodyPart attachment = new MimeBodyPart();
             attachment.setDataHandler(new DataHandler(new ByteArrayDataSource(report, "application/vnd.ms-excel")));
-            attachment.setFileName("report.xlsx");
-
+            Calendar calendar = Calendar.getInstance();
+            calendar.setTime(date);
+            String year = String.valueOf(calendar.get(Calendar.YEAR));
+            String month = String.valueOf(calendar.get(Calendar.MONTH)+1);
+            if (month.length()==1) {
+                month="0"+month;
+            }
+            String day = String.valueOf(calendar.get(Calendar.DAY_OF_MONTH));
+            if (day.length()==1) {
+                day="0"+day;
+            }
+            String filename = year+month+day+"-report.xlsx";
+            attachment.setFileName(filename);
             Multipart mp = new MimeMultipart();
             mp.addBodyPart(messageBodyPart);
             mp.addBodyPart(attachment);

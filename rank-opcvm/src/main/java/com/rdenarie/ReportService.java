@@ -26,7 +26,6 @@ import java.util.stream.Collectors;
 
 public class ReportService {
   private static final Logger log = Logger.getLogger(ReportService.class.getName());
-
   public static byte[] generateReport() {
 
     // Stream containing excel data
@@ -40,6 +39,8 @@ public class ReportService {
       generateGlobalTab(datas,outputStream, myWorkBook);
       generateCategoriesTab(datas,outputStream, myWorkBook);
       generatePartenairesTab(datas,outputStream, myWorkBook);
+      myWorkBook.write(outputStream);
+
       return outputStream.toByteArray();
     }catch (Exception e) {
       log.fine("Unable to generate xls file");
@@ -93,7 +94,6 @@ public class ReportService {
                                     cell.setCellValue(lastCellValue);
                                     currentRow.getAndIncrement();
     });
-    myWorkBook.write(outputStream);
 
 
   }
@@ -212,7 +212,6 @@ public class ReportService {
       currentRow.getAndIncrement();
     });
 
-    myWorkBook.write(outputStream);
   }
 
   private static void generatePartenairesTab(List<Entity> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
@@ -347,6 +346,5 @@ public class ReportService {
       currentRow.getAndIncrement();
     });
 
-    myWorkBook.write(outputStream);
   }
 }
