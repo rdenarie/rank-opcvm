@@ -26,6 +26,10 @@ public class Utils {
     public static final String DATA_ENTRY_ENTITY = "DataEntry";
     public static final String VALUE_ENTITY = "Value";
     public static final String EXCEPTION_ENTITY = "Exception";
+    public static final String IMPORT_REJECTION_ENTITY = "ImportRejection";
+    public static final String IMPORT_KEY_PROPERTY = "importKey";
+    /** On a TimeElement: false while its import is running or when it stored nothing; absent on dates imported before it existed. */
+    public static final String COMPLETE_PROPERTY = "complete";
 
     public static final String NAME_PROPERTY = "name";
     public static final String SCORE_FOND_PROPERTY = "scoreFond";
@@ -138,10 +142,11 @@ public class Utils {
                 reader.close();
                 return response.toString();
             } else {
+                log.warning("Boursorama answered HTTP "+respCode+" for "+urlString);
                 return null;
             }
         } catch (IOException IO) {
-            log.info("Unable to get url content "+urlString+"," +IO.getMessage());
+            log.warning("Unable to get url content "+urlString+"," +IO.getMessage());
             IO.printStackTrace();
         } finally {
             Long endTime = Calendar.getInstance().getTimeInMillis();

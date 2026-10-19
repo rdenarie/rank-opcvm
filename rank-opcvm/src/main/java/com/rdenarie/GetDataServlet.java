@@ -35,7 +35,7 @@ public class GetDataServlet extends HttpServlet {
         String dateParameter=request.getParameter("date");
         Entity currentDate;
         if (dateParameter==null) {
-            currentDate = getLastDate();
+            currentDate = getLastPublishedDate();
         } else {
             currentDate=getDateFromParameter(new Date(Long.parseLong(dateParameter)));
         }
@@ -187,11 +187,7 @@ public class GetDataServlet extends HttpServlet {
 
         Query q = new Query(Utils.TIME_ELEMENT_ENTITY).setFilter(dateFilter).addSort("date", Query.SortDirection.DESCENDING);
 
-        PreparedQuery pq = datastore.prepare(q);
-        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
-        if (entities!=null && !entities.isEmpty()) return entities.get(0);
-        else return null;
-
+        return firstPublished(datastore.prepare(q));
     }
     public static Entity getNextDate(Entity currentDate) {
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
@@ -199,11 +195,28 @@ public class GetDataServlet extends HttpServlet {
 
         Query q = new Query(Utils.TIME_ELEMENT_ENTITY).setFilter(dateFilter).addSort("date", SortDirection.ASCENDING);
 
-        PreparedQuery pq = datastore.prepare(q);
-        List<Entity> entities = pq.asList(FetchOptions.Builder.withLimit(1));
-        if (entities!=null && !entities.isEmpty()) return entities.get(0);
-        else return null;
+        return firstPublished(datastore.prepare(q));
+    }
 
+    /** The last import whose ranks were computed on stored funds: the one the pages show by default. */
+    public static Entity getLastPublishedDate() {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Query q = new Query(Utils.TIME_ELEMENT_ENTITY).addSort("date", Query.SortDirection.DESCENDING);
+        return firstPublished(datastore.prepare(q));
+    }
+
+    /** An import running, or one that stored nothing, is not shown; dates imported before the flag existed are. */
+    public static boolean isPublished(Entity timeElement) {
+        return !Boolean.FALSE.equals(timeElement.getProperty(Utils.COMPLETE_PROPERTY));
+    }
+
+    private static Entity firstPublished(PreparedQuery timeElements) {
+        for (Entity timeElement : timeElements.asIterable(FetchOptions.Builder.withChunkSize(10))) {
+            if (isPublished(timeElement)) {
+                return timeElement;
+            }
+        }
+        return null;
     }
 
     private static QueryResult getDataByDateAndCategory(Entity lastDate, String category, String startCursorString, int limit, boolean groupByCategory) {
@@ -280,47 +293,51 @@ public class GetDataServlet extends HttpServlet {
 
         JsonArray values = new JsonArray();
 
-        Map<String, Object> properties=data.getProperties();
+        try {
+            Map<String, Object> properties = data.getProperties();
 
-        values.add(createJsonObjectValueString(properties.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString()));
 
-        values.add(createJsonObjectValueString(properties.get(Utils.NAME_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_FOND_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.MSRATING_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.ENTREE_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.SORTIE_PROPERTY).toString()));
-//        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.CURRENCY_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
-//        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
-        values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
-//        values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
-        //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_GEN_PROPERTY).toString()));
-        values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_MS_PROPERTY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_CATEGORY).toString()));
-        values.add(createJsonObjectValueAsFloat(properties.get(Utils.CATEGORY_RANK_PROPERTY) != null ?
-                properties.get(Utils.CATEGORY_RANK_PROPERTY).toString() : "N/A"));
-        values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_OF_CATEGORIES) != null ?
-                properties.get(Utils.NUMBER_OF_CATEGORIES).toString() :  "N/A"));
-        //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.NAME_PROPERTY).toString()));
+            values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_FOND_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.MSRATING_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.ENTREE_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.SORTIE_PROPERTY).toString()));
+            //        values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_PROPERTY).toString()));
+            values.add(createJsonObjectValueAsFloat(properties.get(Utils.PRICE_EUR_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.CURRENCY_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.TICKET_IN_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.TICKET_RENEW_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.ID_PROPERTY).toString()));
+            //        values.add(createJsonObjectValueString("<a href='/detailFund.jsp?id="+properties.get(Utils.ID_PROPERTY).toString()+"'>"+properties.get(Utils.ID_PROPERTY).toString()+"</a>"));
+            values.add(createJsonObjectValueString(properties.get(Utils.COURANT_PROPERTY).toString()));
+            //        values.add(createJsonObjectValueAsFloat(properties.get(Utils.ACTIF_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.GERANT_PROPERTY).toString()));
+            //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_GEN_PROPERTY).toString()));
+            values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_MS_PROPERTY).toString()));
+            values.add(createJsonObjectValueAsFloat(properties.get(Utils.SCORE_CATEGORY).toString()));
+            values.add(createJsonObjectValueAsFloat(properties.get(Utils.CATEGORY_RANK_PROPERTY) != null ?
+                                                    properties.get(Utils.CATEGORY_RANK_PROPERTY).toString() : "N/A"));
+            values.add(createJsonObjectValueString(properties.get(Utils.NUMBER_OF_CATEGORIES) != null ?
+                                                   properties.get(Utils.NUMBER_OF_CATEGORIES).toString() : "N/A"));
+            //values.add(createJsonObjectValueString(properties.get(Utils.CATEGORY_PERSO_PROPERTY).toString()));
 
-        values.add(createJsonObjectValueString(properties.get(Utils.MISSING_VALUES) != null && properties.get(Utils.MISSING_VALUES).toString().equals("true") ?
+            values.add(createJsonObjectValueString(
+                properties.get(Utils.MISSING_VALUES) != null && properties.get(Utils.MISSING_VALUES).toString().equals("true") ?
                 properties.get(Utils.MISSING_VALUES).toString() : ""));
 
-
-
-//        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
+            //        if (!isTooExpensive(data.getProperty(Utils.TICKET_IN_PROPERTY).toString())) {
             JsonObject result = new JsonObject();
             result.add("c", values);
             return result;
-//        } else {
-//            return null;
-//        }
+            //        } else {
+            //            return null;
+            //        }
+        } catch (Exception e) {
+            log.severe("Problem with fund "+data.getProperty(Utils.ID_PROPERTY)+"("+data.getProperties()+")"+", "+e.getMessage());
+            return null;
+        }
 
     }
 

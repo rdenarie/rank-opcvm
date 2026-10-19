@@ -48,3 +48,7 @@ cliquer sur les liens de isin pour voir le détail)
 
 
 
+
+- sécurité : /storeService, /deleteDataServlet, /computeRankService (et /mailService, /queueService) sont publics :
+n'importe qui peut lancer un import payant ou supprimer une date. Les réserver à l'admin (cron et task queue passent
+en admin) : security-constraint role "admin" dans web.xml, à vérifier sur le runtime java17 avant de déployer.

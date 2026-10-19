@@ -1,14 +1,31 @@
 cron:
   - description: "Import data each month"
     url: /storeService
-    schedule: 15 of 3rd month of quarter 00:00
+    schedule: 13 of 1st month of quarter 00:00
+    #schedule: 15 of 3rd month of quarter 00:00
     timezone: Europe/Paris
   - description: "Compute rank after import"
     url: /computeRankService?computeAll=true
-    schedule: 15 of 3rd month of quarter 10:00
+    schedule: 13 of 1st month of quarter 10:00
+    #schedule: 15 of 3rd month of quarter 10:00
     timezone: Europe/Paris
   - description: "Send mail report"
     url: /mailService
-    schedule: 15 of 3rd month of quarter 11:00
+    schedule: 13 of 1st month of quarter 11:00
+    #schedule: 15 of 3rd month of quarter 11:00
+    timezone: Europe/Paris
+  # One-off rerun of the empty 2026-10-13 import: remove these three entries once it has run,
+  # otherwise they fire again every 20 October
+  - description: "Rerun import 2026-10"
+    url: /storeService
+    schedule: 20 of oct 00:00
+    timezone: Europe/Paris
+  - description: "Rerun compute rank 2026-10"
+    url: /computeRankService?computeAll=true
+    schedule: 20 of oct 10:00
+    timezone: Europe/Paris
+  - description: "Rerun mail report 2026-10"
+    url: /mailService
+    schedule: 20 of oct 11:00
     timezone: Europe/Paris
 

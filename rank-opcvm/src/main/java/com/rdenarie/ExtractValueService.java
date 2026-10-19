@@ -22,6 +22,8 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 @WebServlet(name = "ExtractValueService", value = "/extractValueService")
@@ -42,69 +44,109 @@ public class ExtractValueService extends HttpServlet {
     String id=request.getParameter("id");
     JsonObject result = getValue(id, false,"TBD Claude Category");
     response.setContentType("application/json");
-    response.getWriter().println(result == null ? "" : result.toString());
+    response.getWriter().println(result == null ? "{}" : result.toString());
+  }
+
+  /**
+   * Why a fund was not stored. The anomalies are the reasons that, in bulk, mean the scraping is broken
+   * (Boursorama unreachable or its page format changed) rather than the fund being legitimately filtered out.
+   */
+  public enum Rejection {
+    FETCH_FAILED(true), NO_ISIN(true), NO_SCORES(true), PARSE_ERROR(true), TOO_OLD(false), TOO_EXPENSIVE(false);
+
+    public final boolean anomaly;
+
+    Rejection(boolean anomaly) {
+      this.anomaly = anomaly;
+    }
+  }
+
+  /** The extracted fund, or the reason it was rejected. */
+  public static final class Extraction {
+    public final JsonObject value;
+    public final Rejection rejection;
+    public final String detail;
+
+    private Extraction(JsonObject value, Rejection rejection, String detail) {
+      this.value = value;
+      this.rejection = rejection;
+      this.detail = detail;
+    }
+
+    static Extraction ok(JsonObject value) {
+      return new Extraction(value, null, null);
+    }
+
+    static Extraction rejected(Rejection rejection, String detail) {
+      return new Extraction(null, rejection, detail);
+    }
   }
 
   public static JsonObject getValue(String id, boolean isBoursoId, String categoryPersoName) {
-    JsonObject result = new JsonObject();
-
-    try {
-      String boursoResponse = isBoursoId ? getFondValueOnBoursoByBoursoId(id ) : getFondValueOnBoursoByIsin(id);
-      if (boursoResponse==null) {
-        return null;
-      }
-      Document doc = Jsoup.parse(boursoResponse);
-
-      if (!checkLastValue(doc)) {
-        return null;
-      }
-
-
-      String isin = extractIsin(result, doc);
-      if (isin!=null) {
-        log.fine("Read datas for isin="+isin);
-        extractValues(result, doc,false);
-        JsonObject values = result.getAsJsonObject("values");
-        if (values.size() == 0) {
-          //some opcvm have no score.
-          //ignore it without exception
-          return null;
-        }
-        double scoreFond = calculScoreFond(values.getAsJsonObject("fond"), values.getAsJsonObject("category"));
-        double scoreCategory = calculScore(values.getAsJsonObject("category"));
-        double scorePercentile = calculScorePercentile(values.getAsJsonObject("percentile"));
-        result.addProperty("scoreFond", scoreFond);
-        result.addProperty("scoreCategory", scoreCategory);
-        result.addProperty("scorePercentile", scorePercentile);
-
-        extractName(result, doc);
-        extractType(result,doc);
-        extractMSRating(result, doc);
-
-        extractCostsConditions(result, doc);
-        extractFacePrice(result, doc);
-        extractGerant(result, doc);
-        result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
-
-        if (!shouldWeKeepFund(result)) {
-          //do not take in accountfund which are too costly
-          return null;
-        }
-      } else {
-        return null;
-      }
-
-    } catch (Exception e) {
-      storeException(id,e);
-      e.printStackTrace();
-      return null;
-
-
-    }
-    return result;
+    return extract(id, isBoursoId, categoryPersoName).value;
   }
 
-  private static boolean checkLastValue(Document boursoResponse) {
+  public static Extraction extract(String id, boolean isBoursoId, String categoryPersoName) {
+    String boursoResponse;
+    try {
+      boursoResponse = isBoursoId ? getFondValueOnBoursoByBoursoId(id) : getFondValueOnBoursoByIsin(id);
+    } catch (IOException e) {
+      return Extraction.rejected(Rejection.FETCH_FAILED, e.toString());
+    }
+    if (boursoResponse == null) {
+      return Extraction.rejected(Rejection.FETCH_FAILED, "no response from Boursorama");
+    }
+    try {
+      return parse(Jsoup.parse(boursoResponse), categoryPersoName, Instant.now());
+    } catch (Exception e) {
+      storeException(id, e);
+      log.log(Level.WARNING, "Unable to parse Boursorama page of " + id, e);
+      return Extraction.rejected(Rejection.PARSE_ERROR, e.toString());
+    }
+  }
+
+  static Extraction parse(Document doc, String categoryPersoName, Instant now) {
+    JsonObject result = new JsonObject();
+
+    if (!checkLastValue(doc, now)) {
+      return Extraction.rejected(Rejection.TOO_OLD, "last value older than one year");
+    }
+
+    String isin = extractIsin(result, doc);
+    if (isin == null) {
+      return Extraction.rejected(Rejection.NO_ISIN, "not a fund page: " + doc.title());
+    }
+    log.fine("Read datas for isin=" + isin);
+    extractValues(result, doc);
+    JsonObject values = result.getAsJsonObject("values");
+    if (values.getAsJsonObject("fond").size() == 0 || values.getAsJsonObject("category").size() == 0) {
+      //some opcvm have no score, but all of them having none means the performance table changed
+      return Extraction.rejected(Rejection.NO_SCORES, "isin=" + isin + ", values=" + values);
+    }
+    double scoreFond = calculScoreFond(values.getAsJsonObject("fond"), values.getAsJsonObject("category"));
+    double scoreCategory = calculScore(values.getAsJsonObject("category"));
+    double scorePercentile = calculScorePercentile(values.getAsJsonObject("percentile"));
+    result.addProperty("scoreFond", scoreFond);
+    result.addProperty("scoreCategory", scoreCategory);
+    result.addProperty("scorePercentile", scorePercentile);
+
+    extractName(result, doc);
+    extractType(result, doc);
+    extractMSRating(result, doc);
+
+    extractCostsConditions(result, doc);
+    extractFacePrice(result, doc);
+    extractGerant(result, doc);
+    result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
+
+    if (!shouldWeKeepFund(result)) {
+      //do not take in accountfund which are too costly
+      return Extraction.rejected(Rejection.TOO_EXPENSIVE, "ticketIn=" + result.get(Utils.TICKET_IN_PROPERTY));
+    }
+    return Extraction.ok(result);
+  }
+
+  private static boolean checkLastValue(Document boursoResponse, Instant now) {
     //return false if the last known value is older than 1 year
 
     Element name = boursoResponse.selectFirst("div.c-faceplate__real-time");
@@ -115,7 +157,6 @@ public class ExtractValueService extends HttpServlet {
     Instant instant = null;
     try {
       instant = dateFormat.parse(date).toInstant();
-      Instant now = Instant.now();
 
       return !instant.isBefore(now.minus(Period.ofDays(365)));
     } catch (ParseException ignored) {
@@ -154,6 +195,9 @@ public class ExtractValueService extends HttpServlet {
       log.fine("TicketIn eur value=" + ticketInFaceValue+", ticketFaceValue="+initial+", ratio="+ratio);
       return ticketInFaceValue <= MAX_EUR_FACE_VALUE;
     } catch (Exception e) {
+      if (result.get(Utils.TICKET_IN_PROPERTY)==null) {
+        return true;
+      }
       log.severe("\n\nProblem when calculating ticketInEur value. TicketInProperty="+result.get(Utils.TICKET_IN_PROPERTY).getAsString()+"\n\n");
       e.printStackTrace();
       return true;
@@ -318,142 +362,126 @@ public class ExtractValueService extends HttpServlet {
     int current = 1;
     int nbElement=0;
     double somme=0d;
-    while (current<=object.size()) {
-      String val = object.get(indexes[current-1]).getAsString();
-      if (!val.equals("")) {
-        somme+=Double.parseDouble(val);
+    double lastValue=0d;
+    while (current<=indexes.length) {
+      //a period Boursorama shows as "-" is absent: skip it instead of failing the whole fund
+      if (object.get(indexes[current-1]) != null && !object.get(indexes[current-1]).getAsString().equals("")) {
+        lastValue=Double.parseDouble(object.get(indexes[current-1]).getAsString());
+        somme+=lastValue;
         nbElement++;
       }
       current++;
     }
-    score=somme/nbElement;
     if (nbElement==0) {
       return 0;
     }
-    if (nbElement>5) {
+    score=somme/nbElement;
+    if (nbElement>5 && object.get("5ans") != null) {
       score=score+object.get("5ans").getAsInt();
     } else {
-      score = score + object.get(indexes[nbElement - 1]).getAsDouble();
+      score = score + lastValue;
     }
 
     return (int) Math.round(score);
   }
 
-  private static void extractValues(JsonObject result, Document boursoResponse, boolean forceEndOfMonth) {
-    Elements fundPerfAll = boursoResponse.select("div.c-fund-performances__table");
-    Element fundPerfMois = fundPerfAll.get(0);
-    Element fundPerfGlissant = fundPerfAll.get(1);
-    JsonObject valuesGlissantes = new JsonObject();
-    JsonObject valuesFinDeMois = new JsonObject();
-    if (fundPerfGlissant!=null) {
-      List<String> thead = new ArrayList<>();
-      Elements trs = fundPerfGlissant.select("tr.c-table__row");
-      int i=0;
-      for (Element tr: trs) {
-        if (i==0) {
-          //thead
-          Elements tds=tr.select("th.c-table__title");
-          for (Element td : tds) {
-            if (!td.text().equals("")) {
-              thead.add(td.text());
-            }
-          }
-          i++;
-          continue;
-        }
-        Elements tds=tr.select("td.c-table__cell");
-        JsonObject listeValue = new JsonObject();
-        int j=0;
-        for (Element td : tds) {
-          if (!thead.get(j).equalsIgnoreCase("1 semaine")) {
-            if (!td.text().equals("-") && !td.text().equals("")) {
-              int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ", "").replace("janv.", "janvier"));
-              if (i == 3) {
-                //percentile
-                listeValue.addProperty(indexes[index], Integer.valueOf(td.text().replace("%", "")));
-              } else if (i == 0) {
-                //do nothing, it tr in thead
-              } else {
-                //fond ou category
-                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "").replace(",",".")));
-              }
-            }
-          }
-          j++;
-        }
-        if (i==1) {
+  /**
+   * Reads the end-of-month performance table. Boursorama has published it in two orientations:
+   * periods as columns with one row per series (fund, category, percentile), and, since October 2026,
+   * periods as rows with one column per series (FONDS, CATEGORIE, RANG*). Both are recognised by their labels.
+   */
+  static void extractValues(JsonObject result, Document boursoResponse) {
+    Element table = boursoResponse.selectFirst("div.c-fund-performances__table table");
+    boolean isFonds = table != null;
+    if (table == null) {
+      table = boursoResponse.selectFirst("div.c-etf-performances__table table");
+    }
+    JsonObject fond = new JsonObject();
+    JsonObject category = new JsonObject();
+    JsonObject percentile = new JsonObject();
+    JsonObject[] seriesByRow = isFonds ? new JsonObject[] {fond, category, percentile} : new JsonObject[] {fond, category};
 
-          valuesGlissantes.add("fond", listeValue);
-        } else if (i==2) {
-          valuesGlissantes.add("category", listeValue);
-        }else if (i==3) {
-          valuesGlissantes.add("percentile", listeValue);
+    if (table != null) {
+      Elements rows = table.select("tr");
+      List<String> header = new ArrayList<>();
+      if (!rows.isEmpty()) {
+        for (Element th : rows.first().select("th")) {
+          header.add(th.text().trim());
         }
-        i++;
+      }
+      boolean periodsAsColumns = header.stream().anyMatch(label -> toPeriod(label) != null);
+
+      for (Element row : rows.subList(Math.min(1, rows.size()), rows.size())) {
+        Element rowLabel = row.selectFirst("th");
+        Elements cells = row.select("td");
+        if (periodsAsColumns) {
+          //old layout: a row per series, its cells aligned with the non empty header labels
+          int rowIndex = rows.indexOf(row) - 1;
+          if (rowIndex >= seriesByRow.length) {
+            continue;
+          }
+          List<String> periods = new ArrayList<>();
+          for (String label : header) {
+            if (!label.isEmpty()) {
+              periods.add(label);
+            }
+          }
+          for (int j = 0; j < cells.size() && j < periods.size(); j++) {
+            addValue(seriesByRow[rowIndex], toPeriod(periods.get(j)), cells.get(j).text(), seriesByRow[rowIndex] == percentile);
+          }
+        } else {
+          //current layout: a row per period, a column per series named in the header
+          String period = rowLabel == null ? null : toPeriod(rowLabel.text());
+          if (period == null) {
+            continue;
+          }
+          int firstValueColumn = header.size() - cells.size();
+          for (int j = 0; j < cells.size(); j++) {
+            int column = firstValueColumn + j;
+            JsonObject series = column >= 0 && column < header.size() ? toSeries(header.get(column), fond, category, percentile) : null;
+            if (series != null) {
+              addValue(series, period, cells.get(j).text(), series == percentile);
+            }
+          }
+        }
       }
     }
 
-    if (fundPerfMois!=null) {
-      List<String> thead = new ArrayList<>();
-      Elements trs = fundPerfMois.select("tr.c-table__row");
-      int i=0;
-      for (Element tr: trs) {
-        if (i==0) {
-          //thead
-          Elements tds=tr.select("th.c-table__title");
-          for (Element td : tds) {
-            if (!td.text().equals("")) {
-              thead.add(td.text());
-            }
-          }
-          i++;
-          continue;
-        }
-        Elements tds=tr.select("td.c-table__cell");
-        JsonObject listeValue = new JsonObject();
-        int j=0;
-        for (Element td : tds) {
-          if (!thead.get(j).equalsIgnoreCase("1 semaine")) {
-            if (!td.text().equals("-") && !td.text().equals("")) {
-              int index = Arrays.asList(indexes).indexOf(thead.get(j).toLowerCase().replace(" ", "").replace("janv.", "janvier"));
-              if (i == 3) {
-                //percentile
-                listeValue.addProperty(indexes[index], Integer.valueOf(td.text().replace("%", "")));
-              } else if (i == 0) {
-                //do nothing, it tr in thead
-              } else {
-                //fond ou category
-                listeValue.addProperty(indexes[index], Double.valueOf(td.text().replace("%", "").replace(",",".")));
-              }
-            }
-          }
-          j++;
-        }
-        if (i==1) {
+    JsonObject values = new JsonObject();
+    values.add("fond", fond);
+    values.add("category", category);
+    values.add("percentile", percentile);
+    result.add("values", values);
+  }
 
-          valuesFinDeMois.add("fond", listeValue);
-        } else if (i==2) {
-          valuesFinDeMois.add("category", listeValue);
-        }else if (i==3) {
-          valuesFinDeMois.add("percentile", listeValue);
-        }
-        i++;
-      }
+  /** Maps a Boursorama period label ("1er JANV.", "3 ANS"...) to its key in {@link #indexes}, or null when not used. */
+  static String toPeriod(String label) {
+    String normalized = label.toLowerCase(Locale.FRENCH).replace(" ", "").replace(" ", "").replace("janv.", "janvier");
+    return Arrays.asList(indexes).contains(normalized) ? normalized : null;
+  }
 
+  private static JsonObject toSeries(String label, JsonObject fond, JsonObject category, JsonObject percentile) {
+    String normalized = label.toUpperCase(Locale.FRENCH);
+    if (normalized.startsWith("FOND")) {
+      return fond;
+    } else if (normalized.startsWith("CAT")) {
+      return category;
+    } else if (normalized.startsWith("RANG")) {
+      return percentile;
     }
+    return null;
+  }
 
-    //on garde le tableau de valeurs qui a le plus de valeurs
-
-//    if (valuesFinDeMois.getAsJsonObject("fond").size()>valuesGlissantes.getAsJsonObject("fond").size()) {
-//      result.add("values", valuesFinDeMois);
-//    } else {
-//      result.add("values", valuesGlissantes);
-//
-//    }
-
-    // on reste les valeurs fin de mois
-    result.add("values", valuesFinDeMois);
-
+  private static void addValue(JsonObject series, String period, String text, boolean asInteger) {
+    String value = text.replace("%", "").replace(",", ".").replace(" ", "").replace(" ", "").trim();
+    if (period == null || value.isEmpty() || value.equals("-")) {
+      return;
+    }
+    if (asInteger) {
+      series.addProperty(period, (int) Math.round(Double.parseDouble(value)));
+    } else {
+      series.addProperty(period, Double.valueOf(value));
+    }
   }
 
   private static boolean hasMissingValues(JsonObject fundValue) {
@@ -507,53 +535,39 @@ public class ExtractValueService extends HttpServlet {
 
 
     Element costsConditions = boursoResponse.select("div.c-costs-conditions").first();
-
-    Elements costs = costsConditions.select("tr.c-table__row--to-list");
-    int i=1;
-    for (Element cost : costs) {
-
-      if (i==1) {
-        //Frais d'entrée
-        String fraisEntreeValue = "";
-        Elements fraisEntree = cost.select("td");
-        for (Element entree : fraisEntree) {
-          fraisEntreeValue = entree.text();
-        }
-        fraisEntreeValue=fraisEntreeValue.trim();
-        result.addProperty("entree",fraisEntreeValue.equals("") ? "ND" : fraisEntreeValue);
-      } else if (i==2) {
-        //Frais de sortie
-        String fraisSortieValue = "";
-        Elements fraisSortie = cost.select("td");
-        for (Element sortie : fraisSortie) {
-          fraisSortieValue = sortie.text();
-        }
-        fraisSortieValue=fraisSortieValue.trim();
-        result.addProperty("sortie",fraisSortieValue.equals("") ? "ND" : fraisSortieValue);
-      }else if (i==3) {
-        //Frais courant
-        String fraisCourantValue = "";
-        Elements fraisCourant = cost.select("td");
-        for (Element courant : fraisCourant) {
-          if (!courant.text().trim().equals("")) {
-            fraisCourantValue = courant.text();
-          }
-        }
-        fraisCourantValue=fraisCourantValue.trim();
-
-        if (fraisCourantValue.contains(" ")) {
-          fraisCourantValue=fraisCourantValue.substring(0,fraisCourantValue.indexOf("%")+1);
-        }
-        result.addProperty("courant",fraisCourantValue.equals("") ? "ND" : fraisCourantValue);
+    if (costsConditions==null) {
+      return;
+    }
+    //the display needs the three fees: "ND" unless the row is found
+    result.addProperty("entree", "ND");
+    result.addProperty("sortie", "ND");
+    result.addProperty("courant", "ND");
+    //rows are recognised by their label ("Droits d'entrée", "Droits de sortie", "Frais courant"), not their position
+    for (Element cost : costsConditions.select("tr")) {
+      Elements cells = cost.select("td");
+      if (cells.size() < 2) {
+        continue;
       }
-
-
-
-      i++;
+      String label = cells.first().text().toLowerCase(Locale.FRENCH);
+      String value = cells.last().text().trim();
+      if (value.isEmpty()) {
+        continue;
+      }
+      if (label.contains("entrée")) {
+        result.addProperty("entree", value);
+      } else if (label.contains("sortie")) {
+        result.addProperty("sortie", value);
+      } else if (label.contains("courant")) {
+        //"1,07 % 0,6 %": the ongoing charge, followed by the management fee it includes
+        if (value.contains(" ") && value.contains("%")) {
+          value = value.substring(0, value.indexOf("%") + 1);
+        }
+        result.addProperty("courant", value);
+      }
     }
 
     Elements parts = costsConditions.select("div.c-list-info").first().select("li");
-    i=1;
+    int i=1;
     for (Element part : parts){
       if (i==1) {
         String ticketIn=part.selectFirst("p.c-list-info__value").text();
@@ -590,12 +604,19 @@ public class ExtractValueService extends HttpServlet {
 
     Element faceQuotation = doc.select("div.c-faceplate__quotation").get(2);
     String actif = faceQuotation.select("li.c-list-info__item").get(0).text().split("/")[1].replace(" ","");
-    result.addProperty(Utils.ACTIF_PROPERTY,Double.parseDouble(actif.replace(",",".")));
+    try {
+      result.addProperty(Utils.ACTIF_PROPERTY, Double.parseDouble(actif.replace(",", ".")));
+    } catch (NumberFormatException e) {
+      result.addProperty(Utils.ACTIF_PROPERTY, 0d);
+    }
 
 
 
   }
   private static void extractGerant(JsonObject result, Document doc) {
+    if (doc.selectFirst("div.c-fund-characteristics")==null) {
+      return;
+    }
     Element gerant = doc.selectFirst("div.c-fund-characteristics")
             .selectFirst("ul.c-list-info__list")
             .select("li.c-list-info__item").get(2)

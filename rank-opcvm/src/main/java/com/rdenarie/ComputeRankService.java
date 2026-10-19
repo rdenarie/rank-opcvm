@@ -93,6 +93,19 @@ public class ComputeRankService extends HttpServlet {
         preparedDistinctCategoryQuery = datastore.prepare(distinctCategoryQuery);
         categories=preparedDistinctCategoryQuery.asList(FetchOptions.Builder.withDefaults());
         calculate(force, categories);
+        publishIfNotEmpty(lastDate);
+    }
+
+    /** Shows the import on the pages once it holds ranked funds; an empty import stays hidden. */
+    private void publishIfNotEmpty(Entity lastDate) {
+        DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
+        Query fundsOfDate = new Query(Utils.DATA_ENTRY_ENTITY).setAncestor(lastDate.getKey()).setKeysOnly();
+        boolean hasFunds = !datastore.prepare(fundsOfDate).asList(FetchOptions.Builder.withLimit(1)).isEmpty();
+        if (!hasFunds) {
+            log.severe("Import " + lastDate.getKey().getName() + " stored no fund: it stays unpublished");
+        }
+        lastDate.setProperty(Utils.COMPLETE_PROPERTY, hasFunds);
+        datastore.put(lastDate);
     }
 
     private void calculate(boolean force, List<Entity> categories) {
