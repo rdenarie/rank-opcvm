@@ -24,6 +24,8 @@ public final class CloudStorage {
 
   private static final Logger log = Logger.getLogger(CloudStorage.class.getName());
   private static final String SCOPE = "https://www.googleapis.com/auth/devstorage.read_write";
+  /** The upload is refused unless the data part repeats exactly the content type of the metadata part. */
+  static final String CONTENT_TYPE = "application/json; charset=utf-8";
 
   private CloudStorage() {
   }
@@ -52,18 +54,8 @@ public final class CloudStorage {
   /** Writes the file gzip-compressed, with the given browser cache duration. */
   public static void writeJson(String path, JsonObject json, int cacheSeconds) throws IOException {
     byte[] gzipped = gzip(json.toString().getBytes(StandardCharsets.UTF_8));
-    JsonObject metadata = new JsonObject();
-    metadata.addProperty("name", path);
-    metadata.addProperty("contentType", "application/json; charset=utf-8");
-    metadata.addProperty("contentEncoding", "gzip");
-    metadata.addProperty("cacheControl", "public, max-age=" + cacheSeconds);
-
     String boundary = "rank-opcvm-" + System.nanoTime();
-    ByteArrayOutputStream body = new ByteArrayOutputStream();
-    body.write(("--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + metadata + "\r\n--" + boundary
-                + "\r\nContent-Type: application/json\r\n\r\n").getBytes(StandardCharsets.UTF_8));
-    body.write(gzipped);
-    body.write(("\r\n--" + boundary + "--").getBytes(StandardCharsets.UTF_8));
+    ByteArrayOutputStream body = multipartBody(path, gzipped, cacheSeconds, boundary);
 
     URL url = new URL("https://storage.googleapis.com/upload/storage/v1/b/" + bucket() + "/o?uploadType=multipart");
     HttpURLConnection conn = (HttpURLConnection) url.openConnection();
@@ -76,9 +68,30 @@ public final class CloudStorage {
     }
     int code = conn.getResponseCode();
     if (code != HttpURLConnection.HTTP_OK) {
-      throw new IOException("Cloud Storage answered HTTP " + code + " writing " + path);
+      String error = "";
+      try (InputStream in = conn.getErrorStream()) {
+        if (in != null) {
+          error = new String(readAll(in), StandardCharsets.UTF_8);
+        }
+      }
+      throw new IOException("Cloud Storage answered HTTP " + code + " writing " + path + ": " + error);
     }
     log.info("Published " + path + " (" + gzipped.length / 1024 + " KB compressed)");
+  }
+
+  /** The metadata part (name, gzip encoding, cache) then the gzipped JSON, as a multipart/related upload. */
+  static ByteArrayOutputStream multipartBody(String path, byte[] gzipped, int cacheSeconds, String boundary) throws IOException {
+    JsonObject metadata = new JsonObject();
+    metadata.addProperty("name", path);
+    metadata.addProperty("contentType", CONTENT_TYPE);
+    metadata.addProperty("contentEncoding", "gzip");
+    metadata.addProperty("cacheControl", "public, max-age=" + cacheSeconds);
+    ByteArrayOutputStream body = new ByteArrayOutputStream();
+    body.write(("--" + boundary + "\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n" + metadata + "\r\n--" + boundary
+                + "\r\nContent-Type: " + CONTENT_TYPE + "\r\n\r\n").getBytes(StandardCharsets.UTF_8));
+    body.write(gzipped);
+    body.write(("\r\n--" + boundary + "--").getBytes(StandardCharsets.UTF_8));
+    return body;
   }
 
   private static String token() {
