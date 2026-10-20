@@ -15,7 +15,8 @@ ranking as static pages: https://rank-opcvm.appspot.com/
   3. publishes the JSON files to the Cloud Storage bucket `rank-opcvm-data` (`ImportJson`, `CloudStorage`):
      `index.json`, `imports/<date>.json`, `history/<0..63>.json`;
   4. mails the report with its Excel attachment (`MailService`, `ReportService`), or an alert when the import is
-     not published (Morningstar or ECB unavailable, or fewer than half the previous import's funds).
+     not published (Morningstar or ECB unavailable, or fewer than half the previous import's funds). The mails go
+     through Gmail's SMTP server: those of the App Engine Mail API no longer reach Gmail.
 - **Pages** (`index.html`, `fund.html`): static files served by App Engine without starting an instance; they read
   the JSON files from the bucket. Add `?data=<url>` to read them from elsewhere (local tests).
 
@@ -25,7 +26,17 @@ ranking as static pages: https://rank-opcvm.appspot.com/
     gcloud storage buckets add-iam-policy-binding gs://rank-opcvm-data --member=allUsers --role=roles/storage.objectViewer
     gcloud storage buckets update gs://rank-opcvm-data --cors-file=tools/cors.json
 
-The App Engine default service account writes to it (it has the Editor role on the project by default).
+    gcloud storage buckets add-iam-policy-binding gs://rank-opcvm-data --member=serviceAccount:rank-opcvm@appspot.gserviceaccount.com --role=roles/storage.objectAdmin
+
+The last command lets the App Engine default service account write the files: objectAdmin, not objectCreator, since
+the import overwrites `index.json` and the history files.
+
+The mails need a Gmail app password (https://myaccount.google.com/apppasswords) in Secret Manager, readable by the
+App Engine service account:
+
+    gcloud services enable secretmanager.googleapis.com
+    read -s -p "App password: " P && printf '%s' "$P" | gcloud secrets create gmail-app-password --data-file=-; unset P
+    gcloud secrets add-iam-policy-binding gmail-app-password --member=serviceAccount:rank-opcvm@appspot.gserviceaccount.com --role=roles/secretmanager.secretAccessor
 
 The imports made before Morningstar (Datastore era) are converted once by `tools/migrate_datastore.py`, which prints
 the upload commands. Run it before the first Morningstar import, which adds itself to the history files it finds.
