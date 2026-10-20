@@ -1,9 +1,5 @@
 package com.rdenarie;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonPrimitive;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -12,8 +8,6 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.util.Calendar;
-import java.util.Map;
-import java.util.TimeZone;
 import java.util.logging.Logger;
 
 /**
@@ -22,44 +16,29 @@ import java.util.logging.Logger;
 public class Utils {
 
 
-    public static final String TIME_ELEMENT_ENTITY = "TimeElement";
-    public static final String DATA_ENTRY_ENTITY = "DataEntry";
-    public static final String VALUE_ENTITY = "Value";
-    public static final String EXCEPTION_ENTITY = "Exception";
-    public static final String IMPORT_REJECTION_ENTITY = "ImportRejection";
-    public static final String IMPORT_KEY_PROPERTY = "importKey";
-    /** On a TimeElement: false while its import is running or when it stored nothing; absent on dates imported before it existed. */
-    public static final String COMPLETE_PROPERTY = "complete";
 
     public static final String NAME_PROPERTY = "name";
     public static final String SCORE_FOND_PROPERTY = "scoreFond";
     public static final String MSRATING_PROPERTY = "msrating";
     public static final String ENTREE_PROPERTY = "entree";
     public static final String SORTIE_PROPERTY = "sortie";
-    public static final String PRICE_PROPERTY = "price";
     public static final String CURRENCY_PROPERTY = "currency";
     public static final String PRICE_EUR_PROPERTY = "priceEur";
     public static final String TICKET_IN_PROPERTY = "ticketIn";
     public static final String TICKET_RENEW_PROPERTY = "ticketRenew";
     public static final String ID_PROPERTY = "id";
     public static final String COURANT_PROPERTY = "courant";
-    public static final String ACTIF_PROPERTY = "actifM";
     public static final String GERANT_PROPERTY = "gerant";
 
 
-    public static final String CATEGORY_GEN_PROPERTY = "categGenerale";
     public static final String CATEGORY_MS_PROPERTY = "categMS";
-    public static final String CATEGORY_AMF_PROPERTY = "categAMF";
 
-    public static final String CATEGORY_PERSO_PROPERTY = "categPerso";
     public static final String TYPE_PROPERTY = "type";
-    public static final String DURATION_IMPORTATION_ELEMENT_ENTITY = "DurationEntity";
     public static final String RANK_IN_CATEGORY_PROPERTY = "rankInCategory";
     public static final String NUMBER_FUNDS_IN_CATEGORY_PROPERTY = "numberFundsInCategory";
     public static final String SCORE_CATEGORY = "scoreCategory";
     public static final String CATEGORY_RANK_PROPERTY = "categoryRank";
     public static final String NUMBER_OF_CATEGORIES = "numberOfCategories";
-    public static final String MISSING_VALUES = "missingValues";
 
 
     private static final Logger log = Logger.getLogger(Utils.class.getName());
@@ -134,7 +113,7 @@ public class Utils {
                 StringBuffer response = new StringBuffer();
                 String line;
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
 
                 while ((line = reader.readLine()) != null) {
                     response.append(line);
@@ -181,7 +160,7 @@ public class Utils {
                 StringBuffer response = new StringBuffer();
                 String line;
 
-                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream()));
+                BufferedReader reader = new BufferedReader(new InputStreamReader(conn.getInputStream(), java.nio.charset.StandardCharsets.UTF_8));
 
                 while ((line = reader.readLine()) != null) {
                     response.append(line);
@@ -201,41 +180,5 @@ public class Utils {
         }
 
         return null;
-    }
-
-    public static void setTimeZone() {
-        TimeZone.setDefault(TimeZone.getTimeZone("Europe/Paris"));
-    }
-
-    public static JsonObject deepCopy(JsonObject jsonObject) {
-        JsonObject result = new JsonObject();
-
-        for (Map.Entry<String, JsonElement> entry : jsonObject.entrySet()) {
-            if (entry.getValue().isJsonObject()) {
-                result.add(entry.getKey(), deepCopy(entry.getValue().getAsJsonObject()));
-            } else if (entry.getValue().isJsonArray()) {
-                result.add(entry.getKey(), deepCopy(entry.getValue().getAsJsonArray()));
-            } else if (entry.getValue().isJsonPrimitive()) {
-                result.add(entry.getKey(), new JsonPrimitive(entry.getValue().getAsString()));
-            }
-
-        }
-
-        return result;
-    }
-    private static JsonArray deepCopy(JsonArray jsonArray) {
-        JsonArray result = new JsonArray();
-
-        for (JsonElement jsonElement : jsonArray) {
-            if (jsonElement.isJsonObject()) {
-                result.add(deepCopy(jsonElement.getAsJsonObject()));
-            } else if (jsonElement.isJsonArray()) {
-                result.add(deepCopy(jsonElement.getAsJsonArray()));
-            } else if (jsonElement.isJsonPrimitive()) {
-                result.add(new JsonPrimitive(jsonElement.getAsString()));
-            }
-        }
-
-        return result;
     }
 }

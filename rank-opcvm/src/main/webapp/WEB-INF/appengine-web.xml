@@ -1,21 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <appengine-web-app xmlns="http://appengine.google.com/ns/1.0">
     <runtime>java17</runtime>
+    <!-- an instance runs only for the quarterly import (a few minutes); the pages are static files -->
     <instance-class>B4</instance-class>
     <basic-scaling>
         <max-instances>1</max-instances>
-        <idle-timeout>10m</idle-timeout>
+        <idle-timeout>5m</idle-timeout>
     </basic-scaling>
     <app-engine-apis>true</app-engine-apis>
     <system-properties>
-        <property name="appengine.datastore.disableChunkSizeWarning" value="true" />
         <property name="java.util.logging.config.file" value="WEB-INF/logging.properties"/>
         <property name="appengine.api.urlfetch.defaultDeadline" value="60"/>
+        <!-- the bucket the import publishes to and the pages read from (also in app.js) -->
+        <property name="rank.bucket" value="rank-opcvm-data"/>
     </system-properties>
     <url-stream-handler>urlfetch</url-stream-handler>
+    <!-- served by Google's front end without starting an instance -->
+    <static-files>
+        <include path="/**.html" expiration="1h"/>
+        <include path="/**.js" expiration="1h"/>
+        <include path="/**.css" expiration="1h"/>
+        <include path="/**.svg" expiration="1d"/>
+    </static-files>
     <resource-files>
         <include path="/**.xlsx" />
-        <include path="/jsLocal/*.js" />
     </resource-files>
-
 </appengine-web-app>

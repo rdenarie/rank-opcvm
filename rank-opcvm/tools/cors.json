@@ -1,0 +1,8 @@
+[
+  {
+    "origin": ["https://rank-opcvm.appspot.com"],
+    "method": ["GET"],
+    "responseHeader": ["Content-Type"],
+    "maxAgeSeconds": 3600
+  }
+]

@@ -1,7 +1,5 @@
 package com.rdenarie;
 
-import com.google.appengine.api.datastore.Entity;
-import jdk.jshell.execution.Util;
 import org.apache.poi.ss.usermodel.BorderStyle;
 import org.apache.poi.ss.usermodel.Cell;
 import org.apache.poi.ss.usermodel.CellStyle;
@@ -17,7 +15,11 @@ import java.io.ByteArrayOutputStream;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.HashMap;
+import java.util.Locale;
+import java.util.Map;
 import java.util.Comparator;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -26,7 +28,58 @@ import java.util.stream.Collectors;
 
 public class ReportService {
   private static final Logger log = Logger.getLogger(ReportService.class.getName());
-  public static byte[] generateReport() {
+  /** Same selection as the site: the top 20 % of each category (top 100 below 500 funds). */
+  static boolean shown(Fund fund) {
+    return (fund.fundsInCategory <= 500 && fund.rank <= 100) || fund.rank <= fund.fundsInCategory * 0.2;
+  }
+
+  /** One row per shown fund, with the property names of the former Datastore entities the template columns follow. */
+  static List<Map<String, Object>> rows(ImportBuilder.Result result) {
+    Map<String, Category> categories = new HashMap<>();
+    result.categories.forEach(category -> categories.put(category.id, category));
+    List<Map<String, Object>> rows = new ArrayList<>();
+    for (Fund fund : result.funds) {
+      if (!shown(fund)) {
+        continue;
+      }
+      Category category = categories.get(fund.categoryId);
+      Map<String, Object> row = new HashMap<>();
+      row.put(Utils.RANK_IN_CATEGORY_PROPERTY, fund.rank);
+      row.put(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY, fund.fundsInCategory);
+      row.put(Utils.NAME_PROPERTY, fund.name);
+      row.put(Utils.SCORE_FOND_PROPERTY, fund.score);
+      row.put(Utils.MSRATING_PROPERTY, fund.stars == null ? "ND" : fund.stars);
+      row.put(Utils.ENTREE_PROPERTY, percent(fund.entryFee));
+      row.put(Utils.SORTIE_PROPERTY, percent(fund.exitFee));
+      row.put(Utils.PRICE_EUR_PROPERTY, fund.priceEur);
+      row.put(Utils.CURRENCY_PROPERTY, fund.currency);
+      row.put(Utils.TICKET_IN_PROPERTY, fund.ticketLabel());
+      row.put(Utils.TICKET_RENEW_PROPERTY, "ND");
+      row.put(Utils.ID_PROPERTY, fund.isin);
+      row.put(Utils.COURANT_PROPERTY, percent(fund.ongoingCharge));
+      row.put(Utils.GERANT_PROPERTY, "");
+      row.put(Utils.CATEGORY_MS_PROPERTY, category.name);
+      row.put(Utils.SCORE_CATEGORY, category.score);
+      row.put(Utils.CATEGORY_RANK_PROPERTY, category.rank);
+      row.put(Utils.NUMBER_OF_CATEGORIES, result.categories.size());
+      row.put(Utils.TYPE_PROPERTY, fund.type);
+      rows.add(row);
+    }
+    rows.sort(Comparator.comparingDouble((Map<String, Object> row) -> (Double) row.get(Utils.SCORE_CATEGORY))
+                        .thenComparingDouble(row -> (Double) row.get(Utils.SCORE_FOND_PROPERTY)).reversed());
+    return rows;
+  }
+
+  /** A fee as Boursorama wrote it: "1,07 %". */
+  static String percent(Double value) {
+    if (value == null) {
+      return "ND";
+    }
+    String number = value % 1 == 0 ? String.valueOf(value.longValue()) : String.format(Locale.FRENCH, "%s", value).replace('.', ',');
+    return number + " %";
+  }
+
+  public static byte[] generateReport(ImportBuilder.Result result) {
 
     // Stream containing excel data
     try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream()){
@@ -34,7 +87,7 @@ public class ReportService {
       // Create Excel WorkBook and Sheet
       InputStream reportTemplate = new FileInputStream("WEB-INF/classes/reportTemplate.xlsx");
       XSSFWorkbook myWorkBook = new XSSFWorkbook (reportTemplate);
-      List<Entity> datas = GetDataServlet.getDatasEntity(null, -1, null, GetDataServlet.getLastDate(),true);
+      List<Map<String, Object>> datas = rows(result);
 
       generateGlobalTab(datas,outputStream, myWorkBook);
       generateCategoriesTab(datas,outputStream, myWorkBook);
@@ -43,15 +96,14 @@ public class ReportService {
 
       return outputStream.toByteArray();
     }catch (Exception e) {
-      log.fine("Unable to generate xls file");
-      e.printStackTrace();
+      log.log(java.util.logging.Level.SEVERE, "Unable to generate the Excel report", e);
     }
 
     return null;
 
   }
 
-  private static void generateCategoriesTab(List<Entity> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
+  private static void generateCategoriesTab(List<Map<String, Object>> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
 
     XSSFSheet categoriesSheet = myWorkBook.getSheetAt(1);
     AtomicInteger currentRow = new AtomicInteger(8);
@@ -68,26 +120,26 @@ public class ReportService {
 
 
     datas.stream().collect(
-        Collectors.groupingBy(entity -> entity.getProperty(Utils.CATEGORY_MS_PROPERTY),
+        Collectors.groupingBy(entity -> entity.get(Utils.CATEGORY_MS_PROPERTY),
                               Collectors.collectingAndThen(
                                   Collectors.toList(),
-                                  values -> values.get(0)))).values().stream().sorted(Comparator.comparingDouble(entity -> Double.parseDouble(((Entity)entity).getProperty(Utils.SCORE_CATEGORY).toString())).reversed()).forEach((entity) -> {
+                                  values -> values.get(0)))).values().stream().sorted(Comparator.comparingDouble(entity -> Double.parseDouble(((Map<String, Object>)entity).get(Utils.SCORE_CATEGORY).toString())).reversed()).forEach((entity) -> {
                                     Row row = categoriesSheet.createRow(currentRow.get());
                                     Cell cell = row.createCell(0);
                                     cell.setCellStyle(styleRow.getCell(0).getCellStyle());
-                                    cell.setCellValue(entity.getProperty(Utils.CATEGORY_MS_PROPERTY).toString());
+                                    cell.setCellValue(entity.get(Utils.CATEGORY_MS_PROPERTY).toString());
 
                                     cell =row.createCell(1);
                                     cell.setCellStyle(styleRow.getCell(1).getCellStyle());
-                                    cell.setCellValue(entity.getProperty(Utils.SCORE_CATEGORY).toString());
+                                    cell.setCellValue(entity.get(Utils.SCORE_CATEGORY).toString());
 
                                     cell =row.createCell(2);
                                     cell.setCellStyle(styleRow.getCell(2).getCellStyle());
-                                    cell.setCellValue(entity.getProperty(Utils.CATEGORY_RANK_PROPERTY).toString());
+                                    cell.setCellValue(entity.get(Utils.CATEGORY_RANK_PROPERTY).toString());
 
                                     cell =row.createCell(3);
                                     cell.setCellStyle(styleRow.getCell(3).getCellStyle());
-                                    cell.setCellValue(entity.getProperty(Utils.NUMBER_OF_CATEGORIES).toString());
+                                    cell.setCellValue(entity.get(Utils.NUMBER_OF_CATEGORIES).toString());
 
                                     cell = row.createCell(4);
                                     cell.setCellStyle(styleRow.getCell(4).getCellStyle());
@@ -97,7 +149,7 @@ public class ReportService {
 
 
   }
-  private static void generateGlobalTab(List<Entity> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
+  private static void generateGlobalTab(List<Map<String, Object>> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
 
     XSSFSheet globalSheet = myWorkBook.getSheetAt(0);
     AtomicInteger currentRow = new AtomicInteger(22);
@@ -136,88 +188,88 @@ public class ReportService {
 
         cell = row.createCell(1);
         cell.setCellStyle(styleRow.getCell(1).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString());
 
         cell = row.createCell(2);
         cell.setCellStyle(styleRow.getCell(2).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString());
 
         cell = row.createCell(3);
         cell.setCellStyle(styleRow.getCell(3).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.NAME_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.NAME_PROPERTY).toString());
 
         cell = row.createCell(4);
         cell.setCellStyle(styleRow.getCell(4).getCellStyle());
-        cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.SCORE_FOND_PROPERTY).toString()));
+        cell.setCellValue(Double.parseDouble(entity.get(Utils.SCORE_FOND_PROPERTY).toString()));
 
         cell = row.createCell(5);
         cell.setCellStyle(styleRow.getCell(5).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.MSRATING_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.MSRATING_PROPERTY).toString());
 
         cell = row.createCell(6);
         cell.setCellStyle(styleRow.getCell(6).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.ENTREE_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.ENTREE_PROPERTY).toString());
 
         cell = row.createCell(7);
         cell.setCellStyle(styleRow.getCell(7).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.SORTIE_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.SORTIE_PROPERTY).toString());
 
         cell = row.createCell(8);
         cell.setCellStyle(styleRow.getCell(8).getCellStyle());
-        cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.PRICE_EUR_PROPERTY).toString()));
+        cell.setCellValue(Double.parseDouble(entity.get(Utils.PRICE_EUR_PROPERTY).toString()));
 
         cell = row.createCell(9);
         cell.setCellStyle(styleRow.getCell(9).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.CURRENCY_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.CURRENCY_PROPERTY).toString());
 
         cell = row.createCell(10);
         cell.setCellStyle(styleRow.getCell(10).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.TICKET_IN_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.TICKET_IN_PROPERTY).toString());
 
         cell = row.createCell(11);
         cell.setCellStyle(styleRow.getCell(11).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.TICKET_RENEW_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.TICKET_RENEW_PROPERTY).toString());
 
         cell = row.createCell(12);
         cell.setCellStyle(styleRow.getCell(12).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.ID_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.ID_PROPERTY).toString());
 
         cell = row.createCell(13);
         cell.setCellStyle(styleRow.getCell(13).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.COURANT_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.COURANT_PROPERTY).toString());
 
         cell = row.createCell(14);
         cell.setCellStyle(styleRow.getCell(14).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.GERANT_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.GERANT_PROPERTY).toString());
 
         cell = row.createCell(15);
         cell.setCellStyle(styleRow.getCell(15).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.CATEGORY_MS_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.CATEGORY_MS_PROPERTY).toString());
 
         cell = row.createCell(16);
         cell.setCellStyle(styleRow.getCell(16).getCellStyle());
-        cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.SCORE_CATEGORY).toString()));
+        cell.setCellValue(Double.parseDouble(entity.get(Utils.SCORE_CATEGORY).toString()));
 
         cell = row.createCell(17);
         cell.setCellStyle(styleRow.getCell(17).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.CATEGORY_RANK_PROPERTY).toString());
+        cell.setCellValue(entity.get(Utils.CATEGORY_RANK_PROPERTY).toString());
 
         cell = row.createCell(18);
         cell.setCellStyle(styleRow.getCell(18).getCellStyle());
-        cell.setCellValue(entity.getProperty(Utils.NUMBER_OF_CATEGORIES).toString());
+        cell.setCellValue(entity.get(Utils.NUMBER_OF_CATEGORIES).toString());
 
         cell = row.createCell(19);
         cell.setCellStyle(styleRow.getCell(19).getCellStyle());
         cell.setCellValue(lastCellValue);
       } catch (Exception e) {
-        log.severe("Error when reading entity "+entity.getProperty(Utils.ID_PROPERTY).toString()+" : {"+entity.toString()+"}"+e.getMessage());
+        log.severe("Error when reading entity "+entity.get(Utils.ID_PROPERTY).toString()+" : {"+entity.toString()+"}"+e.getMessage());
       }
       currentRow.getAndIncrement();
     });
 
   }
 
-  private static void generatePartenairesTab(List<Entity> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
+  private static void generatePartenairesTab(List<Map<String, Object>> datas,ByteArrayOutputStream outputStream, XSSFWorkbook myWorkBook) throws IOException {
 
     XSSFSheet partnersSheet = myWorkBook.getSheetAt(2);
     AtomicInteger currentRow = new AtomicInteger(17);
@@ -249,7 +301,7 @@ public class ReportService {
     };
     AtomicInteger partnerRankInCategory = new AtomicInteger(0);
 
-    datas.stream().filter(entity -> entity.getProperty(Utils.TYPE_PROPERTY).toString().equals("partenaire") || entity.getProperty(Utils.TYPE_PROPERTY).toString().equals("boursomarkets")).forEach(entity -> {
+    datas.stream().filter(entity -> entity.get(Utils.TYPE_PROPERTY).toString().equals("partenaire") || entity.get(Utils.TYPE_PROPERTY).toString().equals("boursomarkets")).forEach(entity -> {
       Row row = partnersSheet.createRow(currentRow.get());
 
       Cell cell = row.createCell(0);
@@ -258,86 +310,86 @@ public class ReportService {
 
       cell =row.createCell(1);
       cell.setCellStyle(styleRow.getCell(1).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.RANK_IN_CATEGORY_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.RANK_IN_CATEGORY_PROPERTY).toString());
 
       cell = row.createCell(2);
       cell.setCellStyle(styleRow.getCell(2).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.NUMBER_FUNDS_IN_CATEGORY_PROPERTY).toString());
 
       cell = row.createCell(3);
       cell.setCellStyle(styleRow.getCell(3).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.NAME_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.NAME_PROPERTY).toString());
 
       cell = row.createCell(4);
       cell.setCellStyle(styleRow.getCell(4).getCellStyle());
-      cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.SCORE_FOND_PROPERTY).toString()));
+      cell.setCellValue(Double.parseDouble(entity.get(Utils.SCORE_FOND_PROPERTY).toString()));
 
       cell = row.createCell(5);
       cell.setCellStyle(styleRow.getCell(5).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.MSRATING_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.MSRATING_PROPERTY).toString());
 
       cell = row.createCell(6);
       cell.setCellStyle(styleRow.getCell(6).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.ENTREE_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.ENTREE_PROPERTY).toString());
 
       cell = row.createCell(7);
       cell.setCellStyle(styleRow.getCell(7).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.SORTIE_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.SORTIE_PROPERTY).toString());
 
       cell = row.createCell(8);
       cell.setCellStyle(styleRow.getCell(8).getCellStyle());
-      cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.PRICE_EUR_PROPERTY).toString()));
+      cell.setCellValue(Double.parseDouble(entity.get(Utils.PRICE_EUR_PROPERTY).toString()));
 
       cell = row.createCell(9);
       cell.setCellStyle(styleRow.getCell(9).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.CURRENCY_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.CURRENCY_PROPERTY).toString());
 
       cell = row.createCell(10);
       cell.setCellStyle(styleRow.getCell(10).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.TICKET_IN_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.TICKET_IN_PROPERTY).toString());
 
       cell = row.createCell(11);
       cell.setCellStyle(styleRow.getCell(11).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.TICKET_RENEW_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.TICKET_RENEW_PROPERTY).toString());
 
       cell = row.createCell(12);
       cell.setCellStyle(styleRow.getCell(12).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.ID_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.ID_PROPERTY).toString());
 
       cell = row.createCell(13);
       cell.setCellStyle(styleRow.getCell(13).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.COURANT_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.COURANT_PROPERTY).toString());
 
       cell = row.createCell(14);
       cell.setCellStyle(styleRow.getCell(14).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.GERANT_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.GERANT_PROPERTY).toString());
 
       cell = row.createCell(15);
       cell.setCellStyle(styleRow.getCell(15).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.CATEGORY_MS_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.CATEGORY_MS_PROPERTY).toString());
 
       cell = row.createCell(16);
       cell.setCellStyle(styleRow.getCell(16).getCellStyle());
-      cell.setCellValue(Double.parseDouble(entity.getProperty(Utils.SCORE_CATEGORY).toString()));
+      cell.setCellValue(Double.parseDouble(entity.get(Utils.SCORE_CATEGORY).toString()));
 
       cell = row.createCell(17);
       cell.setCellStyle(styleRow.getCell(17).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.CATEGORY_RANK_PROPERTY).toString());
+      cell.setCellValue(entity.get(Utils.CATEGORY_RANK_PROPERTY).toString());
 
       cell = row.createCell(18);
       cell.setCellStyle(styleRow.getCell(18).getCellStyle());
-      cell.setCellValue(entity.getProperty(Utils.NUMBER_OF_CATEGORIES).toString());
+      cell.setCellValue(entity.get(Utils.NUMBER_OF_CATEGORIES).toString());
 
       cell = row.createCell(19);
       cell.setCellStyle(styleRow.getCell(19).getCellStyle());
       cell.setCellValue(lastCellValue);
 
       cell = row.createCell(20);
-      if (ref.lastCategory.equals("") || !ref.lastCategory.equals(entity.getProperty(Utils.CATEGORY_MS_PROPERTY))) {
+      if (ref.lastCategory.equals("") || !ref.lastCategory.equals(entity.get(Utils.CATEGORY_MS_PROPERTY))) {
         cell.setCellValue("1");
         cell.setCellStyle(styleRow.getCell(20).getCellStyle());
         partnerRankInCategory.set(1);
-        ref.lastCategory=entity.getProperty(Utils.CATEGORY_MS_PROPERTY).toString();
+        ref.lastCategory=entity.get(Utils.CATEGORY_MS_PROPERTY).toString();
       } else {
         int currentRank = partnerRankInCategory.incrementAndGet();
         cell.getCellStyle().cloneStyleFrom(styleRow.getCell(20).getCellStyle());

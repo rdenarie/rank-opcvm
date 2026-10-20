@@ -1,16 +1,6 @@
 cron:
-  - description: "Import data each month"
-    url: /storeService
-    schedule: 13 of 1st month of quarter 00:00
-    #schedule: 15 of 3rd month of quarter 00:00
-    timezone: Europe/Paris
-  - description: "Compute rank after import"
-    url: /computeRankService?computeAll=true
-    schedule: 13 of 1st month of quarter 10:00
-    #schedule: 15 of 3rd month of quarter 10:00
-    timezone: Europe/Paris
-  - description: "Send mail report"
-    url: /mailService
-    schedule: 13 of 1st month of quarter 11:00
-    #schedule: 15 of 3rd month of quarter 11:00
+  - description: "Quarterly import: Morningstar data, ranks, published JSON files and mail report"
+    url: /importService
+    # the 1st of the quarter: Morningstar's daily performances are then closest to the quarter end
+    schedule: 1 of 1st month of quarter 00:00
     timezone: Europe/Paris

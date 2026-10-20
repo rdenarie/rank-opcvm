@@ -6,164 +6,32 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonElement;
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
-import org.jsoup.Jsoup;
-import org.jsoup.nodes.Document;
-import org.jsoup.select.Elements;
-import org.jsoup.nodes.Element;
 
-import javax.servlet.annotation.WebServlet;
-import javax.servlet.http.HttpServlet;
-import javax.servlet.http.HttpServletRequest;
-import javax.servlet.http.HttpServletResponse;
-import java.io.IOException;
 import java.util.*;
 import java.util.logging.Logger;
 
 /**
  * Created by Romain Dénarié (romain.denarie@exoplatform.com) on 14/07/18.
+ *
+ * The personal categories shown on the site, each grouping Morningstar categories. A Morningstar category is
+ * identified by its id (EUCA...), looked up from the names below in the table of {@link #getCategoriesMsCodes()}.
  */
-
-@WebServlet(name = "CategoriesService", value = "/categoriesService")
-public class CategoriesService  extends HttpServlet {
+public class CategoriesService {
     private static final Logger log = Logger.getLogger(CategoriesService.class.getName());
 
-    @Override
-    public void doGet(HttpServletRequest request, HttpServletResponse response)
-            throws IOException {
-
-
-        response.setContentType("text/html");
-        response.getWriter().println(getIdFonds());
-    }
-
-    public static List<String> getIdFonds() {
-        List<String> result=new ArrayList<>();
-
-        JsonObject categories = getCategories();
-
-        JsonArray personalCategories = categories.getAsJsonArray("personalCategories");
-        int currentPersonalCategory = 1;
-        for (JsonElement personalCategory : personalCategories) {
-
-
-
-            log.fine("Treat personal category "+personalCategory.getAsJsonObject().get("categoryName").getAsString() + "("+currentPersonalCategory+"/"+personalCategories.size()+")");
-
-            JsonArray categoriesMs = personalCategory.getAsJsonObject().getAsJsonArray("categoriesMs");
-            int currentMsCategory = 1;
-            //if  (currentPersonalCategory>2) break;
-            for (JsonElement categoryMs : categoriesMs) {
-                //if (currentMsCategory>2) break;
-                log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString() + "(" + currentMsCategory + "/" + categoriesMs.size() + ")");
-                String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
-                result.addAll(getIdFondsByCategorySearchCodeFromMS(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
-                currentMsCategory++;
+    /** Morningstar category id (EUCA...) to the personal category it is shown in. */
+    public static Map<String, String> getPersoByCategoryId() {
+        Map<String, String> result = new HashMap<>();
+        for (JsonElement personalCategory : getCategories().getAsJsonArray("personalCategories")) {
+            String perso = personalCategory.getAsJsonObject().get("categoryName").getAsString();
+            for (JsonElement msCategory : personalCategory.getAsJsonObject().getAsJsonArray("categoriesMs")) {
+                if (msCategory.isJsonObject()) {
+                    result.put(msCategory.getAsJsonObject().get("categorySearchCode").getAsString(), perso);
+                }
             }
-
-            currentPersonalCategory++;
         }
         return result;
-
-
     }
-
-    public static List<String> getIdFondsByMsCategory(JsonElement categoryMs, JsonElement personalCategory) {
-        List<String> result=new ArrayList<>();
-
-        log.fine("\tTreat ms category " + categoryMs.getAsJsonObject().get("categoryName").getAsString());
-        String categorySearchCode = categoryMs.getAsJsonObject().get("categorySearchCode").getAsString();
-        result.addAll(getIdFondsByCategorySearchCodeFromMS(categorySearchCode,personalCategory.getAsJsonObject().get("categoryName").getAsString()));
-
-        return result;
-
-    }
-
-    private static List<String> getIdFondsByCategorySearchCodeFromBourso(String categorySearchCode, String personalCategoryName) {
-        List<String> result=new ArrayList<>();
-        String url = "/bourse/opcvm/recherche/?fundSearch%5Bclasse%5D=all&fundSearch%5Bcritgen%5D=morningstar&fundSearch%5Bsouscritgen%5D="+categorySearchCode;
-        Element nextPage=null;
-        do {
-            String boursoResponse = getCategoriesBoursoResponse(url);
-
-            if (boursoResponse != null) {
-                Document doc = Jsoup.parse(boursoResponse);
-                Elements links = doc.selectFirst("div.c-tabs__content.is-active").select("a[href^=/bourse/opcvm/cours/]");
-                for (Element link : links) {
-                    String[] splitted = link.attr("href").split("/");
-                    result.add(splitted[splitted.length - 1]+"#"+personalCategoryName);
-                }
-                Element pageNumberElement = doc.selectFirst("span.c-pagination__content.is-active");
-                if (pageNumberElement==null) {
-                    nextPage=null;
-                } else {
-                    int pageNumber = Integer.parseInt(pageNumberElement.text());
-                    pageNumber++;
-                    nextPage = doc.selectFirst("a[href^=/bourse/opcvm/recherche/page-" + pageNumber + "]");
-                    if (nextPage != null) {
-                        url = nextPage.attr("href");
-                    }
-                }
-            }
-        } while (nextPage!=null);
-
-        return result;
-
-
-    }
-
-    private static List<String> getIdFondsByCategorySearchCodeFromMS(String categorySearchCode, String personalCategoryName) {
-        List<String> result=new ArrayList<>();
-
-        Map<String,String> funds = new HashMap<>();
-
-        String msResponse;
-        int pageSize=200;
-        int offset=0;
-        int total=0;
-        int currentPage=1;
-        do {
-
-            String url =
-                    "http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?page="+currentPage+"&pageSize="+pageSize+"&sortOrder=LegalName%20asc&outputType=json&version=1&languageId=fr-FR&currencyId=EUR&universeIds=FOFRA%24%24ALL&securityDataPoints=SecId%7CName%7CPriceCurrency%7CIsin%7CTenforeId%7CLegalName%7CClosePrice%7CYield_M12%7COngoingCharge%7CCategoryName%7CAnalystRatingScale%7CStarRatingM255%7CSustainabilityRank%7CGBRReturnD1%7CGBRReturnW1%7CGBRReturnM1%7CGBRReturnM3%7CGBRReturnM6%7CGBRReturnM0%7CGBRReturnM12%7CGBRReturnM36%7CGBRReturnM60%7CGBRReturnM120%7CMaxFrontEndLoad%7COngoingCostActual%7CPerformanceFeeActual%7CTransactionFeeActual%7CMaximumExitCostAcquired%7CFeeLevel%7CManagerTenure%7CMaxDeferredLoad%7CInitialPurchase%7CFundTNAV%7CEquityStyleBox%7CBondStyleBox%7CAverageMarketCapital%7CAverageCreditQualityCode%7CEffectiveDuration%7CMorningstarRiskM255%7CAlphaM36%7CBetaM36%7CR2M36%7CStandardDeviationM36%7CSharpeM36%7CInvestorTypeRetail%7CInvestorTypeProfessional%7CInvestorTypeEligibleCounterparty%7CExpertiseBasic%7CExpertiseAdvanced%7CExpertiseInformed%7CReturnProfilePreservation%7CReturnProfileGrowth%7CReturnProfileIncome%7CReturnProfileHedging%7CReturnProfileOther%7CTrackRecordExtension&filters=CategoryId%3AIN%3A"+categorySearchCode+"&term=&subUniverseId=";
-            log.fine(url);
-            msResponse = Utils.getMSResponse(url);
-            if (msResponse != null) {
-                JsonObject jsonObject = (new JsonParser()).parse(msResponse).getAsJsonObject();
-                total = jsonObject.get("total").getAsInt();
-                JsonArray rows = jsonObject.getAsJsonArray("rows");
-                log.fine("Total rows=" + rows.size());
-
-                for (JsonElement element : rows) {
-                    JsonElement property = element.getAsJsonObject().get("Isin");
-                    if (property != null) {
-                        String id = element.getAsJsonObject().get("Isin").getAsString();
-
-                        JsonElement propertyName = element.getAsJsonObject().get("Name");
-                        String name="";
-                        if (propertyName!=null) {
-                            name=element.getAsJsonObject().get("Name").getAsString();
-                        }
-                        funds.put(id + "#" + personalCategoryName,name);
-
-                        result.add(id + "#" + personalCategoryName);
-                    }
-                }
-                offset+=pageSize;
-                currentPage++;
-            }
-        } while (offset<total && msResponse!=null);
-
-        //reduce the map to remove funds which are duplicated
-        //example :
-        //"Pictet-Russia Index P USD" : isin : LU0625741946
-        //"Pictet-Russia Index P EUR" : isin : LU0625742753
-
-        log.fine("Category : "+categorySearchCode+" : found "+result.size()+" funds to store.");
-        return result;
-
-
-    }
-
 
     public static JsonObject getCategories() {
         JsonObject result = new JsonObject();
@@ -616,12 +484,5 @@ public class CategoriesService  extends HttpServlet {
             log.severe("Category "+categoryName+" not founded");
             return null;
         }
-    }
-
-    public static String getCategoriesBoursoResponse(String absolutePart) {
-
-        String url = "https://www.boursorama.com" + absolutePart;
-        return Utils.getBoursoResponse(url);
-
     }
 }
