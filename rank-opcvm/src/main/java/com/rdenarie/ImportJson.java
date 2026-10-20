@@ -100,6 +100,8 @@ public final class ImportJson {
     entry.addProperty("source", SOURCE);
     entry.addProperty("funds", result.funds.size());
     entry.addProperty("categories", result.categories.size());
+    //the pages add it to the import's URL: a rerun the same day must not be hidden by the browser's cached copy
+    entry.addProperty("published", java.time.Instant.now().toString());
     imports.add(entry);
     if (index != null && index.has("imports")) {
       for (JsonElement existing : index.getAsJsonArray("imports")) {

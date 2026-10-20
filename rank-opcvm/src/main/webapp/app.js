@@ -144,7 +144,7 @@ function saveUrl() {
 
 async function showImport(date) {
   $('table').innerHTML = '<div class="loading">Chargement de l\'import du ' + fmtDate(date) + '…</div>';
-  state.data = await loadImport(date);
+  state.data = await loadImport(date, publishedOf(state.index, date));
   //the first imports stored no category rank: rank them by score as the import does
   if (state.data.categories.some(c => !c.rank)) {
     state.data.categories.forEach(c => { c.rank = 1 + state.data.categories.filter(o => o.score > c.score).length; });

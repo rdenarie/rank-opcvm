@@ -2,6 +2,7 @@ package com.rdenarie;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertTrue;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
@@ -29,6 +30,7 @@ public class ImportJsonTest {
     assertEquals(2, updated.getAsJsonArray("imports").size());
     assertEquals("2026-10-01", updated.getAsJsonArray("imports").get(0).getAsJsonObject().get("date").getAsString());
     assertEquals(20500, updated.getAsJsonArray("imports").get(0).getAsJsonObject().get("funds").getAsInt());
+    assertTrue(updated.getAsJsonArray("imports").get(0).getAsJsonObject().has("published"));
     assertEquals(20197, ImportService.previousFunds(updated, "2026-10-01"));
   }
 

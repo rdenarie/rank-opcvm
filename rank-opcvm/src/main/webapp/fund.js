@@ -102,7 +102,7 @@ async function init() {
   try {
     const index = await loadIndex();
     const date = index.imports.some(i => i.date === params.get('date')) ? params.get('date') : index.imports[0].date;
-    const [data, shard] = await Promise.all([loadImport(date), loadJson('history/' + shardOf(isin) + '.json').catch(() => ({}))]);
+    const [data, shard] = await Promise.all([loadImport(date, publishedOf(index, date)), loadJson('history/' + shardOf(isin) + '.json').catch(() => ({}))]);
     const fund = data.funds.find(f => f.isin === isin);
     if (!fund) {
       $('fund').innerHTML = '<div class="empty">Le fonds ' + escapeHtml(isin) + ' n\'est pas classé dans l\'import du ' + fmtDate(date) + '.</div>';

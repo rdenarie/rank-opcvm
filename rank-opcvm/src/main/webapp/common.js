@@ -18,8 +18,14 @@ function loadIndex() {
   return loadJson('index.json');
 }
 
-function loadImport(date) {
-  return loadJson('imports/' + date + '.json');
+/** The index entry's publication time versions the URL: a rerun of the same day must not be read from the cache. */
+function loadImport(date, published) {
+  return loadJson('imports/' + date + '.json' + (published ? '?v=' + encodeURIComponent(published) : ''));
+}
+
+function publishedOf(index, date) {
+  const entry = index.imports.find(i => i.date === date);
+  return entry && entry.published;
 }
 
 /** Must stay identical to ImportJson.shardOf. */
