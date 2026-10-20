@@ -52,3 +52,8 @@ cliquer sur les liens de isin pour voir le détail)
 - sécurité : /storeService, /deleteDataServlet, /computeRankService (et /mailService, /queueService) sont publics :
 n'importe qui peut lancer un import payant ou supprimer une date. Les réserver à l'admin (cron et task queue passent
 en admin) : security-constraint role "admin" dans web.xml, à vérifier sur le runtime java17 avant de déployer.
+
+- passage à Morningstar (screener) : déplacer le cron d'import au 1er du premier mois du trimestre
+(`1 of 1st month of quarter 00:00`), pour que les valeurs au jour soient au plus près de la fin de trimestre ;
+supprimer les étapes de 10:00 (rangs) et 11:00 (mail), l'import calculant les rangs et envoyant le mail d'un seul tenant.
+Tant que l'import lit Boursorama, garder le 13 : les valeurs de fin de mois n'y sont publiées que quelques jours après.

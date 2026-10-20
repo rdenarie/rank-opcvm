@@ -102,7 +102,10 @@ public class MailService extends HttpServlet {
                         + " la fois précédente. Il n'est pas affiché s'il est vide.\n\n" + result;
             }
             result += "\n" + summarizeRejections(lastDate.getKey().getName());
-            msg.setSubject(importFailed ? "Rank-opcvm : ALERTE import incomplet" : "Rank-opcvm import status");
+            //date and count in the subject: Gmail would otherwise thread every report into one conversation
+            String importDate = lastCal.get(Calendar.DAY_OF_MONTH) + "/" + (lastCal.get(Calendar.MONTH) + 1) + "/" + lastCal.get(Calendar.YEAR);
+            msg.setSubject((importFailed ? "Rank-opcvm : ALERTE import incomplet du " : "Rank-opcvm : import du ")
+                    + importDate + ", " + nbElementForLastDate + " fonds");
 
             BodyPart messageBodyPart = new MimeBodyPart();
             messageBodyPart.setText(result);
@@ -130,6 +133,7 @@ public class MailService extends HttpServlet {
             msg.setContent(mp);
 
             Transport.send(msg);
+            log.info("Import report sent to " + TO + ": " + msg.getSubject());
         } catch (MessagingException e) {
             log.log(Level.SEVERE, "Unable to send the import report", e);
         }
@@ -173,6 +177,7 @@ public class MailService extends HttpServlet {
             msg.setSubject(subject);
             msg.setText(body);
             Transport.send(msg);
+            log.info("Alert sent to " + TO + ": " + subject);
         } catch (MessagingException e) {
             log.log(Level.SEVERE, "Unable to send alert '" + subject + "'", e);
         }

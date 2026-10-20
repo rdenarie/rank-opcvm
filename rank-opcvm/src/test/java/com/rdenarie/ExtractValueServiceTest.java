@@ -72,6 +72,15 @@ public class ExtractValueServiceTest {
   }
 
   @Test
+  public void rejectsFundQuotedInCurrencyWithoutEuroValue() throws IOException {
+    Document doc = load("bourso/fund-LU2351347138-CNH-2026-10.html");
+
+    ExtractValueService.Extraction extraction = ExtractValueService.parse(doc, "Pays Emergents", OCTOBER_2026);
+
+    assertEquals(ExtractValueService.Rejection.NO_EUR_PRICE, extraction.rejection);
+  }
+
+  @Test
   public void rejectsPageWithoutPerformanceTable() {
     Document doc = Jsoup.parse("<h2 class='c-faceplate__isin'>FR0000000000 - OPCVM</h2>");
 

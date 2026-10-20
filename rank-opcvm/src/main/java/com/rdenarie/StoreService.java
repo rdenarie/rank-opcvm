@@ -42,6 +42,11 @@ public class StoreService extends HttpServlet {
     /** The import is cancelled when this many canary funds fail: the scraping is broken, the import would be empty. */
     private static final int CANARY_FAILURES_TO_CANCEL = 2;
     private static final int MAX_DETAIL_LENGTH = 500;
+    /**
+     * A fund Boursorama did not serve (HTTP 429, connection closed) is retried by the queue this many times
+     * before being recorded as rejected; queue.yaml allows as many retries.
+     */
+    private static final int FETCH_RETRIES = 3;
 
     public static String getTodayKeyName() {
         Calendar now = Calendar.getInstance();
@@ -73,27 +78,37 @@ public class StoreService extends HttpServlet {
         String categoryId = request.getParameter("categoryId");
 
         if (id!=null) {
-            store(id, isBoursoId);
-            //storeOld();
-            response.getWriter().println("Finished");
+            //a call outside the task queue has no retry count: it is its own last attempt
+            String retryCount = request.getHeader("X-AppEngine-TaskRetryCount");
+            boolean lastAttempt = retryCount == null || Integer.parseInt(retryCount) >= FETCH_RETRIES;
+            if (store(id, isBoursoId, lastAttempt)) {
+                response.getWriter().println("Finished");
+            } else {
+                response.sendError(HttpServletResponse.SC_SERVICE_UNAVAILABLE, "Boursorama did not serve " + id + ", retry later");
+            }
         } else if (categoryMsId!=null && categoryId!=null) {
             storeByMsCategory(categoryMsId,categoryId);
         } else {
             response.getWriter().println(storeAll());
         }
     }
-    private static void store(String id, boolean isBoursoId) {
+    /** Returns false when the fund could not be fetched and should be retried later. */
+    private static boolean store(String id, boolean isBoursoId, boolean lastAttempt) {
         log.info("Store opcvm with id "+id+", isBoursoId:"+isBoursoId);
-        List<Entity> entityList = new ArrayList<>();
         DatastoreService datastore = DatastoreServiceFactory.getDatastoreService();
-        entityList.addAll(getEntitiesListToStore(id, isBoursoId));
+        List<Entity> entityList = getEntitiesListToStore(id, isBoursoId, lastAttempt);
+        if (entityList == null) {
+            return false;
+        }
         log.info("Found "+entityList.size()+" entities to store.");
         if (entityList.size()>0) {
             datastore.put(entityList);
         }
+        return true;
     }
 
-    private static List<Entity> getEntitiesListToStore(String idAndCategory, boolean isBoursoId) {
+    /** Returns null when the fetch failed and another attempt remains. */
+    private static List<Entity> getEntitiesListToStore(String idAndCategory, boolean isBoursoId, boolean lastAttempt) {
         List<Entity> entityList = new ArrayList<>();
 
         String[] splitted = idAndCategory.split("#");
@@ -105,6 +120,10 @@ public class StoreService extends HttpServlet {
         log.finer("Value extracted : "+jsonObject);
 
         if (jsonObject==null) {
+            if (extraction.rejection == ExtractValueService.Rejection.FETCH_FAILED && !lastAttempt) {
+                log.info("Fund " + id + " not served by Boursorama (" + extraction.detail + "), retried later");
+                return null;
+            }
             entityList.add(createRejection(id, extraction));
         } else {
             Entity timeElement = getTodayTimeElement();

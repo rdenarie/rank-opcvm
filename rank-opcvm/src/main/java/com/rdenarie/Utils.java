@@ -147,7 +147,6 @@ public class Utils {
             }
         } catch (IOException IO) {
             log.warning("Unable to get url content "+urlString+"," +IO.getMessage());
-            IO.printStackTrace();
         } finally {
             Long endTime = Calendar.getInstance().getTimeInMillis();
             Long duration=endTime - startTime;
@@ -194,8 +193,7 @@ public class Utils {
                 return null;
             }
         } catch (IOException IO) {
-            log.info("Unable to get url content "+urlString+"," +IO.getMessage());
-            IO.printStackTrace();
+            log.warning("Unable to get url content "+urlString+"," +IO.getMessage());
         } finally {
             Long endTime = Calendar.getInstance().getTimeInMillis();
             Long duration=endTime - startTime;

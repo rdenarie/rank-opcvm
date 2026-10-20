@@ -52,7 +52,9 @@ public class ExtractValueService extends HttpServlet {
    * (Boursorama unreachable or its page format changed) rather than the fund being legitimately filtered out.
    */
   public enum Rejection {
-    FETCH_FAILED(true), NO_ISIN(true), NO_SCORES(true), PARSE_ERROR(true), TOO_OLD(false), TOO_EXPENSIVE(false);
+    FETCH_FAILED(true), NO_ISIN(true), NO_SCORES(true), PARSE_ERROR(true), TOO_OLD(false), TOO_EXPENSIVE(false),
+    /** Quoted in a currency Boursorama gives no EUR value for (CNH...): it cannot be compared nor filtered. */
+    NO_EUR_PRICE(false);
 
     public final boolean anomaly;
 
@@ -136,6 +138,9 @@ public class ExtractValueService extends HttpServlet {
 
     extractCostsConditions(result, doc);
     extractFacePrice(result, doc);
+    if (!result.has(Utils.PRICE_EUR_PROPERTY)) {
+      return Extraction.rejected(Rejection.NO_EUR_PRICE, "currency=" + result.get(Utils.CURRENCY_PROPERTY));
+    }
     extractGerant(result, doc);
     result.addProperty(Utils.CATEGORY_PERSO_PROPERTY, categoryPersoName);
 
@@ -597,6 +602,9 @@ public class ExtractValueService extends HttpServlet {
       result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(price.text().replace(" ","").replace(",",".")));
     } else {
       Element facePriceEur = doc.select("div.c-faceplate__indicative").first();
+      if (facePriceEur == null) {
+        return;
+      }
       Element priceEur = facePriceEur.selectFirst("span.c-faceplate__indicative-value");
       result.addProperty(Utils.PRICE_EUR_PROPERTY,Double.parseDouble(priceEur.text().replace("EUR","").replace(" ","").replace(",",".")));
     }

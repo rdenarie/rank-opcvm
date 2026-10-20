@@ -1,3 +1,8 @@
 queue:
 - name: slow-queue
   rate: 1/s
+  # A fund Boursorama refuses (HTTP 429) is retried after a backoff; StoreService records it as rejected on the last retry
+  retry_parameters:
+    task_retry_limit: 3
+    min_backoff_seconds: 60
+    max_backoff_seconds: 600
