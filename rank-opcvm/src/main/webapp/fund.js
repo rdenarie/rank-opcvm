@@ -67,13 +67,16 @@ function render(fund, category, data, points) {
     + fmtDate(p[0]) + '</a></td><td class="num">' + rankBadge(p[1], p[2]) + '</td><td class="num">' + fmt(p[3]) + '</td></tr>').join('');
   document.title = fund.name + ' · Classement OPCVM';
   $('fund').innerHTML =
-    '<div class="fund-head"><h2>' + escapeHtml(fund.name) + ' ' + typeBadge(fund.type) + '</h2><div class="meta">'
+    '<div class="fund-head"><h2>' + escapeHtml(fund.name) + ' ' + (isEtf(fund) ? '<span class="badge etf">ETF</span> ' : '')
+    + typeBadge(fund.type) + '</h2><div class="meta">'
     + '<span>' + fund.isin + '</span><span>' + escapeHtml(category.name) + ' (' + escapeHtml(category.perso || '') + ')</span>'
     + (fund.gerant ? '<span>Gérant : ' + escapeHtml(fund.gerant) + '</span>' : '')
     + '<span>Import du ' + fmtDate(data.date) + '</span>'
     + '<a href="https://www.boursorama.com/recherche/?query=' + fund.isin + '" target="_blank" rel="noopener">Voir sur Boursorama</a></div></div>'
     + '<div class="kpis">'
-    + kpi('Rang dans la catégorie', rankBadge(fund.rank, fund.n), escapeHtml(category.name))
+    + kpi(isEtf(fund) ? 'Rang parmi les ETF de la catégorie' : 'Rang dans la catégorie', rankBadge(fund.rank, fund.n),
+          escapeHtml(category.name) + (fund.vs ? '<br>Il serait ' + fund.vs[0] + (fund.vs[0] === 1 ? 'er' : 'e') + ' sur ' + fund.vs[1]
+          + (isEtf(fund) ? ' parmi les fonds' : ' parmi les ETF') : ''))
     + kpi('Score', fmt(fund.score), 'catégorie : ' + fmt(category.score) + (category.rank ? ', ' + category.rank + 'e sur ' + data.categories.length : ''))
     + kpi('Étoiles Morningstar', stars(fund.stars) || '–')
     + kpi('Frais courants', fmt(fund.courant, ' %'), 'entrée ' + fmt(fund.entree, ' %') + ' · sortie ' + fmt(fund.sortie, ' %'))
@@ -82,7 +85,7 @@ function render(fund, category, data, points) {
     + '</div>'
     + '<section><h3>Rang dans la catégorie au fil des imports</h3><div class="card chart">' + rankChart(points)
     + '</div><p class="legend">Part des fonds de la catégorie mieux classés : en haut, le fonds est en tête ; la bande verte est le top 20 %.</p></section>'
-    + '<section><h3>Calcul du score</h3><div class="card"><table><thead><tr><th class="nosort">Période</th><th class="num nosort">Fonds</th>'
+    + '<section><h3>Calcul du score</h3><div class="card"><table><thead><tr><th class="nosort">Période</th><th class="num nosort">' + (isEtf(fund) ? 'ETF' : 'Fonds') + '</th>'
     + '<th class="num nosort">Moyenne catégorie</th><th class="num nosort">Valeur retenue</th></tr></thead><tbody>' + rows + '</tbody></table>'
     + '<div class="explain">Moyenne des ' + explain.count + ' périodes retenues : ' + fmt(explain.mean) + ' ; plus ' + explain.bonusLabel
     + ' : ' + fmt(explain.bonus) + ' ; score = ' + fmt(explain.mean + explain.bonus) + '.'

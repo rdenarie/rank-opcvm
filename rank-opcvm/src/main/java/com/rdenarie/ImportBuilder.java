@@ -68,7 +68,8 @@ public class ImportBuilder {
     List<Fund> kept = new ArrayList<>();
     for (Map.Entry<String, List<Fund>> entry : fundsByCategory.entrySet()) {
       Category category = categories.get(entry.getKey());
-      category.perf = average(entry.getValue());
+      //the averages cover the funds only, as before the ETFs: scores stay comparable with the history
+      category.perf = average(ofKind(entry.getValue(), Fund.Kind.FUND));
       category.score = Scoring.score(category.perf);
       List<Fund> keptInCategory = new ArrayList<>();
       for (Fund fund : entry.getValue()) {
@@ -84,26 +85,50 @@ public class ImportBuilder {
         }
         keptInCategory.add(fund);
       }
-      for (Fund fund : keptInCategory) {
-        fund.rank = 1 + (int) keptInCategory.stream().filter(other -> other.score > fund.score).count();
-        fund.fundsInCategory = keptInCategory.size();
-      }
-      category.funds = keptInCategory.size();
+      List<Fund> funds = ofKind(keptInCategory, Fund.Kind.FUND);
+      List<Fund> etfs = ofKind(keptInCategory, Fund.Kind.ETF);
+      rank(funds, etfs);
+      rank(etfs, funds);
+      category.funds = funds.size();
+      category.etfs = etfs.size();
       kept.addAll(keptInCategory);
     }
 
+    //a category is ranked on its funds' average: one holding only ETFs is listed, unranked (rank 0), last
     List<Category> ranked = new ArrayList<>();
     for (Category category : categories.values()) {
-      if (category.funds > 0) {
+      if (category.funds > 0 || category.etfs > 0) {
         ranked.add(category);
       }
     }
     for (Category category : ranked) {
-      category.rank = 1 + (int) ranked.stream().filter(other -> other.score > category.score).count();
+      if (category.funds > 0) {
+        category.rank = 1 + (int) ranked.stream().filter(other -> other.funds > 0 && other.score > category.score).count();
+      }
     }
-    ranked.sort(Comparator.comparingInt(category -> category.rank));
+    ranked.sort(Comparator.comparingInt(category -> category.rank == 0 ? Integer.MAX_VALUE : category.rank));
     kept.sort(Comparator.comparingDouble((Fund fund) -> fund.score).reversed());
     return new Result(date, ranked, kept, rejections);
+  }
+
+  /** Ranks each share class among its own kind, then gives the rank it would have among the other kind. */
+  private static void rank(List<Fund> sameKind, List<Fund> otherKind) {
+    for (Fund fund : sameKind) {
+      fund.rank = 1 + (int) sameKind.stream().filter(other -> other.score > fund.score).count();
+      fund.fundsInCategory = sameKind.size();
+      fund.otherKindInCategory = otherKind.size();
+      fund.otherKindRank = otherKind.isEmpty() ? 0 : 1 + (int) otherKind.stream().filter(other -> other.score > fund.score).count();
+    }
+  }
+
+  private static List<Fund> ofKind(List<Fund> funds, Fund.Kind kind) {
+    List<Fund> result = new ArrayList<>();
+    for (Fund fund : funds) {
+      if (fund.kind == kind) {
+        result.add(fund);
+      }
+    }
+    return result;
   }
 
   static Rejection reject(Fund fund, LocalDate date, Map<String, Double> eurRates) {

@@ -11,6 +11,7 @@ const state = {
   data: null,
   categories: new Map(),
   tab: params.get('tab') || ALL,
+  kind: params.get('kind') === 'etf' ? 'etf' : 'fund',
   category: params.get('cat') || null,
   search: params.get('q') || '',
   top: params.get('top') !== '0',
@@ -25,9 +26,13 @@ const $ = id => document.getElementById(id);
 /** Sortable columns of the fund table: header, value to sort on, cell. */
 const FUND_COLUMNS = [
   { key: 'rank', label: 'Rang', num: true, value: f => f.rank / f.n, cell: f => '<td class="num">' + rankBadge(f.rank, f.n) + '</td>' },
-  { key: 'name', label: 'Fonds', value: f => f.name, cell: f =>
+  { key: 'name', label: () => state.kind === 'etf' ? 'ETF' : 'Fonds', value: f => f.name, cell: f =>
       '<td class="name"><a href="' + withData('fund.html?isin=' + f.isin + '&date=' + state.data.date) + '">' + escapeHtml(f.name)
       + '</a> ' + typeBadge(f.type) + '<small>' + f.isin + ' · ' + escapeHtml(f.currency || '') + '</small></td>' },
+  { key: 'vs', label: () => state.kind === 'etf' ? 'Vs fonds' : 'Vs ETF', num: true,
+    value: f => f.vs ? f.vs[0] / f.vs[1] : null,
+    cell: f => '<td class="num" title="' + (state.kind === 'etf' ? 'Rang qu\'aurait cet ETF parmi les fonds de sa catégorie'
+      : 'Rang qu\'aurait ce fonds parmi les ETF de sa catégorie') + '">' + vsLabel(f) + '</td>' },
   { key: 'cat', label: 'Catégorie', value: f => categoryOf(f).name, cell: f => {
       const c = categoryOf(f);
       return '<td class="cat"><button class="linkish" data-cat="' + escapeHtml(c.id) + '">' + escapeHtml(c.name) + '</button>'
@@ -56,6 +61,7 @@ const CATEGORY_COLUMNS = [
   { key: 'p3', label: '3 ans', num: true, value: c => c.perf[4], cell: c => perfCell(c.perf[4]) },
   { key: 'p5', label: '5 ans', num: true, value: c => c.perf[5], cell: c => perfCell(c.perf[5]) },
   { key: 'funds', label: 'Fonds', num: true, value: c => c.funds, cell: c => '<td class="num">' + c.funds + '</td>' },
+  { key: 'etfs', label: 'ETF', num: true, value: c => c.etfs || 0, cell: c => '<td class="num">' + (c.etfs || '') + '</td>' },
 ];
 
 function categoryOf(fund) {
@@ -70,6 +76,7 @@ function filteredFunds() {
   const search = state.search.trim().toLowerCase();
   const maxFees = state.fees === '' ? null : Number(state.fees);
   return state.data.funds.filter(f => {
+    if ((isEtf(f) ? 'etf' : 'fund') !== state.kind) return false;
     if (state.tab === PARTNERS ? !f.type : state.tab !== ALL && categoryOf(f).perso !== state.tab) return false;
     if (state.category && f.cat !== state.category) return false;
     //as on the former site, the partner tab lists every fund BoursoBank sells, not only the top ones
@@ -95,7 +102,8 @@ function sortRows(rows, columns) {
 
 function renderTable(rows, columns, total) {
   const head = columns.map(c => '<th data-sort="' + c.key + '" class="' + (c.num ? 'num ' : '')
-    + (state.sort.key === c.key ? 'sorted' + (state.sort.asc ? ' asc' : '') : '') + '">' + c.label + '</th>').join('');
+    + (state.sort.key === c.key ? 'sorted' + (state.sort.asc ? ' asc' : '') : '') + '">'
+    + (typeof c.label === 'function' ? c.label() : c.label) + '</th>').join('');
   const body = rows.slice(0, state.shown).map(r => '<tr>' + columns.map(c => c.cell(r)).join('') + '</tr>').join('');
   $('table').innerHTML = rows.length
     ? '<table><thead><tr>' + head + '</tr></thead><tbody>' + body + '</tbody></table>'
@@ -110,14 +118,17 @@ function render() {
   const chip = state.category && state.categories.get(state.category);
   $('categoryChip').innerHTML = chip
     ? '<span class="chip">' + escapeHtml(chip.name) + ' <button id="clearCat" title="Toutes les catégories">×</button></span>' : '';
-  $('filters').querySelectorAll('label').forEach(l => { l.hidden = state.tab === CATEGORIES; });
+  $('filters').querySelectorAll('label, .segmented').forEach(l => { l.hidden = state.tab === CATEGORIES; });
+  $('kind').querySelectorAll('button').forEach(b => b.classList.toggle('active', b.dataset.kind === state.kind));
   if (state.tab === CATEGORIES) {
     const rows = sortRows(state.data.categories, CATEGORY_COLUMNS);
     renderTable(rows, CATEGORY_COLUMNS, rows.length + ' catégories');
   } else {
     const rows = sortRows(filteredFunds(), FUND_COLUMNS);
     state.maxScore = Math.max(1, ...rows.slice(0, 2000).map(f => f.score));
-    renderTable(rows, FUND_COLUMNS, numberFormat.format(rows.length) + ' fonds sur ' + numberFormat.format(state.data.funds.length));
+    const label = state.kind === 'etf' ? ' ETF sur ' : ' fonds sur ';
+    const total = state.data.funds.filter(f => (isEtf(f) ? 'etf' : 'fund') === state.kind).length;
+    renderTable(rows, FUND_COLUMNS, numberFormat.format(rows.length) + label + numberFormat.format(total));
   }
   saveUrl();
 }
@@ -134,6 +145,7 @@ function saveUrl() {
   if (params.get('data')) p.set('data', params.get('data'));
   if (state.data && state.index && state.data.date !== state.index.imports[0].date) p.set('date', state.data.date);
   if (state.tab !== ALL) p.set('tab', state.tab);
+  if (state.kind === 'etf') p.set('kind', 'etf');
   if (state.category) p.set('cat', state.category);
   if (state.search) p.set('q', state.search);
   if (!state.top) p.set('top', '0');
@@ -152,7 +164,9 @@ async function showImport(date) {
   state.categories = new Map(state.data.categories.map(c => [c.id, c]));
   if (state.category && !state.categories.has(state.category)) state.category = null;
   state.shown = PAGE;
-  $('source').textContent = (SOURCE_LABELS[state.data.source] || '') + ' · ' + numberFormat.format(state.data.funds.length) + ' fonds classés';
+  const etfs = state.data.funds.filter(isEtf).length;
+  $('source').textContent = (SOURCE_LABELS[state.data.source] || '') + ' · ' + numberFormat.format(state.data.funds.length - etfs)
+    + ' fonds' + (etfs ? ' et ' + numberFormat.format(etfs) + ' ETF' : '') + ' classés';
   render();
 }
 
@@ -163,6 +177,13 @@ function bindEvents() {
   $('stars').addEventListener('change', e => { state.stars = Number(e.target.value); state.shown = PAGE; render(); });
   $('fees').addEventListener('input', e => { state.fees = e.target.value; state.shown = PAGE; render(); });
   $('more').addEventListener('click', () => { state.shown += PAGE; render(); });
+  $('kind').addEventListener('click', e => {
+    const kind = e.target.dataset.kind;
+    if (!kind || kind === state.kind) return;
+    state.kind = kind;
+    state.shown = PAGE;
+    render();
+  });
   $('tabs').addEventListener('click', e => {
     const tab = e.target.dataset.tab;
     if (!tab) return;
@@ -201,7 +222,8 @@ async function init() {
   try {
     state.index = await loadIndex();
     $('date').innerHTML = state.index.imports
-      .map(i => '<option value="' + i.date + '">' + fmtDate(i.date) + ' · ' + numberFormat.format(i.funds) + ' fonds</option>').join('');
+      .map(i => '<option value="' + i.date + '">' + fmtDate(i.date) + ' · ' + numberFormat.format(i.funds) + ' fonds'
+        + (i.etfs ? ' + ' + numberFormat.format(i.etfs) + ' ETF' : '') + '</option>').join('');
     const wanted = params.get('date');
     const date = state.index.imports.some(i => i.date === wanted) ? wanted : state.index.imports[0].date;
     $('date').value = date;

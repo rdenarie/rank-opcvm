@@ -9,6 +9,10 @@ public class Fund {
   static final String UNIT_AMOUNT = "1";
   static final String[] UNITS_SHARES = {"2", "4", "5"};
 
+  /** Funds and ETFs are ranked separately in each category. */
+  public enum Kind { FUND, ETF }
+
+  public Kind kind = Kind.FUND;
   public String isin;
   public String name;
   /** Morningstar's PerformanceId: the "0P..." identifier Boursorama uses in its fund URLs. */
@@ -34,8 +38,12 @@ public class Fund {
   public double score;
   /** True when a missing period was filled with the category average to compute the score. */
   public boolean filled;
+  /** Rank among the share classes of the same kind in the category, and their number. */
   public int rank;
   public int fundsInCategory;
+  /** Rank the share class would have among the other kind of the category, and their number; 0 when there is none. */
+  public int otherKindRank;
+  public int otherKindInCategory;
 
   public boolean hasPerformance() {
     for (Double value : perf) {

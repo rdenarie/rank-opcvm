@@ -10,8 +10,9 @@ public class Category {
   public Double[] perf = new Double[Scoring.PERIODS.length];
   public double score;
   public int rank;
-  /** Number of funds of the category kept by the import. */
+  /** Number of funds and of ETFs of the category kept by the import. */
   public int funds;
+  public int etfs;
 
   public Category(String id, String name, String perso) {
     this.id = id;

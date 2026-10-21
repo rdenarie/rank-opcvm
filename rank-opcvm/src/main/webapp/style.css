@@ -105,6 +105,17 @@ main { max-width: 1400px; margin: 0 auto; padding: 16px; }
   margin-bottom: 12px;
 }
 .filters label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
+.segmented { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.segmented button {
+  font: inherit;
+  border: 0;
+  background: var(--surface);
+  color: var(--muted);
+  padding: 5px 14px;
+  cursor: pointer;
+}
+.segmented button + button { border-left: 1px solid var(--border); }
+.segmented button.active { background: var(--accent); color: #fff; font-weight: 600; }
 .chip {
   display: inline-flex;
   align-items: center;
@@ -165,6 +176,7 @@ td.cat { white-space: normal; min-width: 180px; max-width: 280px; }
 .stars { color: var(--gold); letter-spacing: 1px; }
 .badge { font-size: 11px; border-radius: 4px; padding: 1px 6px; border: 1px solid var(--border); color: var(--muted); }
 .badge.partenaire { border-color: var(--accent); color: var(--accent); }
+.badge.etf { border-color: var(--up); color: var(--up); }
 .badge.boursomarkets { border-color: var(--gold); color: var(--gold); }
 .linkish { border: 0; background: none; color: var(--accent); cursor: pointer; font: inherit; padding: 0; text-align: left; }
 .more { display: block; margin: 14px auto; font: inherit; padding: 7px 16px; border-radius: 6px; border: 1px solid var(--border);

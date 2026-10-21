@@ -58,6 +58,7 @@ public final class ImportJson {
       c.addProperty("score", category.score);
       c.addProperty("rank", category.rank);
       c.addProperty("funds", category.funds);
+      c.addProperty("etfs", category.etfs);
       c.add("perf", numbers(category.perf));
       categories.add(c);
     }
@@ -71,6 +72,16 @@ public final class ImportJson {
       f.addProperty("score", fund.score);
       f.addProperty("rank", fund.rank);
       f.addProperty("n", fund.fundsInCategory);
+      if (fund.kind == Fund.Kind.ETF) {
+        f.addProperty("kind", "etf");
+      }
+      if (fund.otherKindInCategory > 0) {
+        //the rank it would have among the other kind (ETFs for a fund, funds for an ETF) of its category
+        JsonArray vs = new JsonArray();
+        vs.add(new JsonPrimitive(fund.otherKindRank));
+        vs.add(new JsonPrimitive(fund.otherKindInCategory));
+        f.add("vs", vs);
+      }
       f.add("perf", numbers(fund.perf));
       if (fund.filled) {
         f.addProperty("filled", true);
@@ -98,7 +109,9 @@ public final class ImportJson {
     JsonObject entry = new JsonObject();
     entry.addProperty("date", result.date.toString());
     entry.addProperty("source", SOURCE);
-    entry.addProperty("funds", result.funds.size());
+    //"funds" counts the funds only, as in the imports before the ETFs: the import's sanity check compares it
+    entry.addProperty("funds", countOf(result, Fund.Kind.FUND));
+    entry.addProperty("etfs", countOf(result, Fund.Kind.ETF));
     entry.addProperty("categories", result.categories.size());
     //the pages add it to the import's URL: a rerun the same day must not be hidden by the browser's cached copy
     entry.addProperty("published", java.time.Instant.now().toString());
@@ -135,6 +148,10 @@ public final class ImportJson {
       kept.add(point);
       shard.add(fund.isin, sortByDate(kept));
     }
+  }
+
+  public static int countOf(ImportBuilder.Result result, Fund.Kind kind) {
+    return (int) result.funds.stream().filter(fund -> fund.kind == kind).count();
   }
 
   private static JsonArray sortByDate(JsonArray points) {

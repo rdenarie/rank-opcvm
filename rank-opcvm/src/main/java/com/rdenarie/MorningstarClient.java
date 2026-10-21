@@ -11,8 +11,9 @@ import java.util.Map;
 import java.util.logging.Logger;
 
 /**
- * Reads the funds registered for sale in France from the Morningstar screener, the API behind its public widgets
- * (the key in the URL is the widget's, not ours). About 60 pages of 1000 funds.
+ * Reads the funds registered for sale in France, and the ETFs listed on Euronext Paris, from the Morningstar screener,
+ * the API behind its public widgets (the key in the URL is the widget's, not ours). About 60 pages of 1000 funds and
+ * one page of ETFs.
  */
 public class MorningstarClient {
 
@@ -20,26 +21,47 @@ public class MorningstarClient {
   private static final int PAGE_SIZE = 1000;
   /** Performances in the fund's own currency, as Boursorama shows them; 3, 5 and 10 years are annualised. */
   private static final String URL = "http://lt.morningstar.com/api/rest.svc/klr5zyak8x/security/screener?pageSize=" + PAGE_SIZE
-      + "&outputType=json&version=1&languageId=fr-FR&currencyId=BAS&universeIds=FOFRA%24%24ALL&term=&subUniverseId="
+      + "&outputType=json&version=1&languageId=fr-FR&currencyId=BAS&term=&subUniverseId="
       + "&sortOrder=SecId%20asc&securityDataPoints="
       + String.join("%7C", "Isin", "Name", "PerformanceId", "CategoryId", "CategoryName", "PriceCurrency", "ClosePrice",
                     "ClosePriceDate", "ReturnM0", "ReturnM1", "ReturnM6", "ReturnM12", "ReturnM36", "ReturnM60", "ReturnM120",
                     "OngoingCharge", "MaxFrontEndLoad", "MaximumExitCostAcquired", "InitialPurchase", "InitialPurchaseUnit",
                     "InitialPurchaseCurrency", "StarRatingM255", "FundTNAV");
   private static final int MAX_PAGES = 200;
+  /** Open-end funds registered for sale in France. */
+  public static final String FUNDS_UNIVERSE = "FOFRA%24%24ALL";
+  /** ETFs listed on Euronext Paris, the ones BoursoBank trades without foreign brokerage fees. */
+  public static final String ETFS_UNIVERSE = "ETEXG%24XPAR";
 
   /**
    * Returns every share class with an ISIN, and fills {@code categoryNames} with the current Morningstar name of each
    * category id. Returns null when a page cannot be read: a partial universe would rank funds against a partial category.
    */
   public static List<Fund> fetchUniverse(Map<String, String> categoryNames) {
+    return fetchUniverse(FUNDS_UNIVERSE, Fund.Kind.FUND, categoryNames);
+  }
+
+  /** The ETFs, one share class per ISIN (an ETF can be listed twice on the same exchange). */
+  public static List<Fund> fetchEtfs(Map<String, String> categoryNames) {
+    List<Fund> listings = fetchUniverse(ETFS_UNIVERSE, Fund.Kind.ETF, categoryNames);
+    if (listings == null) {
+      return null;
+    }
+    Map<String, Fund> byIsin = new java.util.LinkedHashMap<>();
+    for (Fund etf : listings) {
+      byIsin.putIfAbsent(etf.isin, etf);
+    }
+    return new ArrayList<>(byIsin.values());
+  }
+
+  static List<Fund> fetchUniverse(String universe, Fund.Kind kind, Map<String, String> categoryNames) {
     List<Fund> funds = new ArrayList<>();
     int total = Integer.MAX_VALUE;
     int read = 0;
     for (int page = 1; read < total && page <= MAX_PAGES; page++) {
-      String response = Utils.getMSResponse(URL + "&page=" + page);
+      String response = Utils.getMSResponse(URL + "&universeIds=" + universe + "&page=" + page);
       if (response == null) {
-        log.severe("Morningstar did not serve page " + page);
+        log.severe("Morningstar did not serve page " + page + " of " + universe);
         return null;
       }
       JsonObject json = new JsonParser().parse(response).getAsJsonObject();
@@ -51,6 +73,7 @@ public class MorningstarClient {
       read += rows.size();
       for (JsonElement row : rows) {
         Fund fund = toFund(row.getAsJsonObject());
+        fund.kind = kind;
         if (fund.isin != null) {
           funds.add(fund);
           String categoryName = string(row.getAsJsonObject(), "CategoryName");
@@ -60,7 +83,7 @@ public class MorningstarClient {
         }
       }
     }
-    log.info("Morningstar universe: " + read + " share classes read, " + funds.size() + " with an ISIN, total announced " + total);
+    log.info("Morningstar universe " + universe + ": " + read + " share classes read, " + funds.size() + " with an ISIN, total announced " + total);
     return read < total ? null : funds;
   }
 

@@ -66,6 +66,15 @@ function rankBadge(rank, total) {
          + rank + ' / ' + total + '</span>';
 }
 
+function isEtf(fund) {
+  return fund.kind === 'etf';
+}
+
+/** "35 / 1149": the rank a line would have among the other kind of its category. */
+function vsLabel(fund) {
+  return fund.vs ? fund.vs[0] + ' / ' + fund.vs[1] : '';
+}
+
 function typeBadge(type) {
   if (type === 'partenaire') {
     return '<span class="badge partenaire">Partenaire</span>';

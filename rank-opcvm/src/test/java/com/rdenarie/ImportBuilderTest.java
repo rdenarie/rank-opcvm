@@ -107,6 +107,46 @@ public class ImportBuilderTest {
     assertEquals(2, result.categories.size());
   }
 
+  @Test
+  public void ranksEtfsApartAndAgainstTheFunds() {
+    Fund fund1 = fund("F1", "C1", "EUR", 20.0);
+    Fund fund2 = fund("F2", "C1", "EUR", 10.0);
+    Fund etf1 = etf("E1", "C1", 15.0);
+    Fund etf2 = etf("E2", "C1", 5.0);
+    Fund etfAlone = etf("E3", "C2", 8.0);
+    Map<String, String> perso = new HashMap<>();
+    perso.put("C1", "Internationales");
+    perso.put("C2", "Sectoriels");
+
+    ImportBuilder.Result result = ImportBuilder.build(DAY, Arrays.asList(fund1, fund2, etf1, etf2, etfAlone),
+                                                      new HashMap<>(), perso, RATES, null);
+
+    //each kind has its own ranking...
+    assertEquals(1, fund1.rank);
+    assertEquals(2, fund2.fundsInCategory);
+    assertEquals(1, etf1.rank);
+    assertEquals(2, etf2.rank);
+    assertEquals(2, etf1.fundsInCategory);
+    //...and the rank it would have among the other kind
+    assertEquals(2, etf1.otherKindRank);
+    assertEquals(2, etf1.otherKindInCategory);
+    assertEquals(3, etf2.otherKindRank);
+    assertEquals(2, fund2.otherKindRank);
+    assertEquals(0, etfAlone.otherKindInCategory);
+    //the category average ignores the ETFs, so that scores stay comparable with the history
+    assertEquals(15.0, result.categories.get(0).perf[0], 0.001);
+    assertEquals(2, result.categories.get(0).etfs);
+    //a category holding only ETFs is listed, unranked, last
+    assertEquals("C2", result.categories.get(1).id);
+    assertEquals(0, result.categories.get(1).rank);
+  }
+
+  private static Fund etf(String isin, String category, Double ytd) {
+    Fund etf = fund(isin, category, "EUR", ytd);
+    etf.kind = Fund.Kind.ETF;
+    return etf;
+  }
+
   private static Fund fund(String isin, String category, String currency, Double ytd) {
     Fund fund = new Fund();
     fund.isin = isin;

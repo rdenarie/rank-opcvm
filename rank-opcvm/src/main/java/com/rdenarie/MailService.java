@@ -38,13 +38,19 @@ public class MailService {
     static final String PASSWORD_SECRET = "gmail-app-password";
     private static final DateTimeFormatter DAY = DateTimeFormatter.ofPattern("dd/MM/yyyy");
 
-    public static void sendImportReport(ImportBuilder.Result result, int previousFunds, int universe, int partners) {
+    public static void sendImportReport(ImportBuilder.Result result, int previousFunds, int universe, int etfUniverse, int partners) {
         String date = result.date.format(DAY);
+        int funds = ImportJson.countOf(result, Fund.Kind.FUND);
+        int etfs = ImportJson.countOf(result, Fund.Kind.ETF);
         StringBuilder body = new StringBuilder();
-        body.append("Import du ").append(date).append(" : ").append(result.funds.size()).append(" fonds classés dans ")
-            .append(result.categories.size()).append(" catégories.\n");
+        body.append("Import du ").append(date).append(" : ").append(funds).append(" fonds et ").append(etfs)
+            .append(" ETF classés dans ").append(result.categories.size()).append(" catégories.\n");
         body.append("Import précédent : ").append(previousFunds).append(" fonds.\n");
-        body.append("Univers Morningstar : ").append(universe).append(" parts.\n");
+        body.append("Univers Morningstar : ").append(universe).append(" parts de fonds, ").append(etfUniverse)
+            .append(" ETF cotés à Paris.\n");
+        if (etfUniverse == 0) {
+            body.append("ATTENTION : Morningstar n'a pas renvoyé les ETF, l'import n'en contient aucun.\n");
+        }
         body.append("Fonds listés par Boursorama (partenaires et Boursomarkets) : ").append(partners).append(".\n");
         if (partners == 0) {
             body.append("ATTENTION : aucune liste Boursorama lue, l'onglet Partenaires est vide.\n");
@@ -62,7 +68,7 @@ public class MailService {
             msg.setFrom(new InternetAddress(FROM));
             msg.addRecipient(Message.RecipientType.TO, new InternetAddress(TO));
             //date and count in the subject: Gmail would otherwise thread every report into one conversation
-            msg.setSubject("Rank-opcvm : import du " + date + ", " + result.funds.size() + " fonds");
+            msg.setSubject("Rank-opcvm : import du " + date + ", " + funds + " fonds, " + etfs + " ETF");
 
             BodyPart text = new MimeBodyPart();
             text.setText(body.toString());

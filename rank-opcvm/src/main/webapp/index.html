@@ -18,6 +18,9 @@
   </header>
   <main>
     <div class="filters" id="filters">
+      <div class="segmented" id="kind" role="group" aria-label="Type de produit">
+        <button data-kind="fund">Fonds</button><button data-kind="etf">ETF</button>
+      </div>
       <label><input type="checkbox" id="top" checked> Top de chaque catégorie</label>
       <label>Étoiles min. <select id="stars">
         <option value="0">toutes</option><option value="3">3+</option><option value="4">4+</option><option value="5">5</option>
@@ -30,8 +33,10 @@
     <button class="more" id="more" hidden>Afficher plus</button>
     <p class="legend">
       Le score est la moyenne des performances cumulées (1er janvier, 1 mois, 6 mois, 1, 3, 5 et 10 ans), plus la
-      performance à 3 ans quand plus de quatre périodes sont connues. « Top » : les 20 % meilleurs de chaque catégorie
-      (les 100 premiers sous 500 fonds). Rang en vert : top 5 % (foncé) ou top 20 % de la catégorie.
+      performance à 3 ans quand plus de quatre périodes sont connues. Fonds et ETF (cotés à Paris) sont classés
+      séparément dans chaque catégorie ; « Vs ETF » et « Vs fonds » donnent le rang qu'aurait la ligne parmi l'autre
+      type. « Top » : les 20 % meilleurs de chaque catégorie (les 100 premiers sous 500). Rang en vert : top 5 % (foncé)
+      ou top 20 % de la catégorie.
     </p>
   </main>
   <script src="common.js"></script>

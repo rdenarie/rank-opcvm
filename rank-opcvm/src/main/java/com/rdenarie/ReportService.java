@@ -39,7 +39,8 @@ public class ReportService {
     result.categories.forEach(category -> categories.put(category.id, category));
     List<Map<String, Object>> rows = new ArrayList<>();
     for (Fund fund : result.funds) {
-      if (!shown(fund)) {
+      //the template has no ETF column: the report lists the funds, the site both
+      if (fund.kind != Fund.Kind.FUND || !shown(fund)) {
         continue;
       }
       Category category = categories.get(fund.categoryId);

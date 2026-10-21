@@ -67,6 +67,31 @@ public class ImportJsonTest {
     assertEquals("partenaire", written.get("type").getAsString());
     assertEquals("ND", written.get("ticket").getAsString());
     assertFalse(written.has("filled"));
+    assertFalse(written.has("kind"));
+    assertFalse(written.has("vs"));
+  }
+
+  @Test
+  public void marksEtfsWithTheirRankAmongTheFunds() {
+    Fund etf = new Fund();
+    etf.isin = "FR0010315770";
+    etf.kind = Fund.Kind.ETF;
+    etf.categoryId = "EUCA000555";
+    etf.rank = 1;
+    etf.fundsInCategory = 42;
+    etf.otherKindRank = 35;
+    etf.otherKindInCategory = 1149;
+    ImportBuilder.Result result = new ImportBuilder.Result(LocalDate.parse("2026-10-21"), Collections.emptyList(),
+                                                           Collections.singletonList(etf), new HashMap<>());
+
+    JsonObject written = ImportJson.toJson(result).getAsJsonArray("funds").get(0).getAsJsonObject();
+    JsonObject entry = ImportJson.addToIndex(null, result).getAsJsonArray("imports").get(0).getAsJsonObject();
+
+    assertEquals("etf", written.get("kind").getAsString());
+    assertEquals("[35,1149]", written.get("vs").toString());
+    //the index counts the funds apart: the import's sanity check compares funds with funds
+    assertEquals(0, entry.get("funds").getAsInt());
+    assertEquals(1, entry.get("etfs").getAsInt());
   }
 
   private static ImportBuilder.Result result(String date, int funds) {

@@ -51,6 +51,17 @@ public class ImportService extends HttpServlet {
       if (universe == null) {
         return abort("Morningstar n'a pas renvoyé l'univers complet des fonds.");
       }
+      List<Fund> etfs = MorningstarClient.fetchEtfs(categoryNames);
+      if (etfs == null) {
+        //the funds are the core of the ranking: publish them, the mail says the ETFs are missing
+        log.warning("Morningstar did not serve the ETFs: the import goes on without them");
+        etfs = new ArrayList<>();
+      }
+      //a share class Morningstar lists both as a fund and as an ETF keeps its fund ranking
+      java.util.Set<String> fundIsins = new java.util.HashSet<>();
+      universe.forEach(fund -> fundIsins.add(fund.isin));
+      etfs.removeIf(etf -> fundIsins.contains(etf.isin));
+      universe.addAll(etfs);
       Map<String, Double> rates = EcbRates.fetch();
       if (rates == null) {
         return abort("Les taux de change de la BCE sont indisponibles.");
@@ -60,8 +71,9 @@ public class ImportService extends HttpServlet {
       ImportBuilder.Result result = ImportBuilder.build(date, universe, categoryNames, persoByCategoryId, rates, partners);
       JsonObject index = CloudStorage.readJson("index.json");
       int previousFunds = previousFunds(index, date.toString());
-      if (result.funds.isEmpty() || result.funds.size() < previousFunds * MIN_RATIO_TO_PREVIOUS_IMPORT) {
-        return abort("L'import ne garde que " + result.funds.size() + " fonds, contre " + previousFunds
+      int funds = ImportJson.countOf(result, Fund.Kind.FUND);
+      if (funds == 0 || funds < previousFunds * MIN_RATIO_TO_PREVIOUS_IMPORT) {
+        return abort("L'import ne garde que " + funds + " fonds, contre " + previousFunds
                      + " au précédent : il n'est pas publié. Univers Morningstar : " + universe.size() + " parts, rejets : "
                      + result.rejections);
       }
@@ -71,8 +83,9 @@ public class ImportService extends HttpServlet {
       //the index last: the pages switch to the new import only once all its files are there
       CloudStorage.writeJson("index.json", ImportJson.addToIndex(index, result), INDEX_CACHE_SECONDS);
 
-      MailService.sendImportReport(result, previousFunds, universe.size(), partners.size());
-      return "Import " + date + " published: " + result.funds.size() + " funds, " + result.categories.size() + " categories";
+      MailService.sendImportReport(result, previousFunds, universe.size() - etfs.size(), etfs.size(), partners.size());
+      return "Import " + date + " published: " + funds + " funds, " + ImportJson.countOf(result, Fund.Kind.ETF) + " ETFs, "
+             + result.categories.size() + " categories";
     } catch (Exception e) {
       log.log(Level.SEVERE, "Import failed", e);
       return abort("L'import a échoué : " + e);
