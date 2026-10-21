@@ -216,10 +216,6 @@
           <devserver.port>8181</devserver.port>
           <deploy.projectId>rank-opcvm</deploy.projectId>
           <deploy.version>1-0-1</deploy.version>
-          <jvmFlags>
-            <jvmFlag>-Ddatastore.backing_store=/home/romain/exo/eXoProjects/persoBourso/ds-maven.bin
-            </jvmFlag>
-          </jvmFlags>
         </configuration>
 
       </plugin>
